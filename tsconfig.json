@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    //"isolatedModules": true, // cannot be changes
+    "lib": ["es5","esnext"],
+    //"module": "None", // cannot be changes
+    "noImplicitUseStrict": true,
+    //"noLib": true, // cannot be changes
+    //"noResolve": true, // cannot be changes
+    "strict": true,
+    "target": "ES2019",
+    "types": ["google-apps-script"]
+  }
+}
