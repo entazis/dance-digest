@@ -1,3 +1,5 @@
+import YouTube = GoogleAppsScript.YouTube;
+
 interface ICategoryTitleUrls {
   [category: string]: {title: string; url: string}[];
 }
@@ -34,7 +36,59 @@ interface IMediaItem {
     profilePictureBaseUrl: string;
     displayName: string;
   };
-  filename: string
+  filename: string;
+}
+
+function retrieveMyUploads() {
+  try {
+    const results = YouTube.Channels?.list('contentDetails', {
+      mine: true,
+    });
+    if (!results || results.items?.length === 0) {
+      Logger.log('no channels found');
+      return;
+    } else {
+      for (
+        let i = 0;
+        i < (results.items as YouTube.Schema.Channel[]).length;
+        i++
+      ) {
+        const item = (results.items as YouTube.Schema.Channel[])[i];
+        const playlistId = item.contentDetails?.relatedPlaylists?.uploads;
+        let nextPageToken = null;
+        do {
+          const playlistResponse:
+            | YouTube.Schema.PlaylistItemListResponse
+            | undefined = YouTube.PlaylistItems?.list('snippet', {
+            playlistId: playlistId,
+            maxResults: 25,
+            pageToken: nextPageToken,
+          });
+          if (!playlistResponse || playlistResponse.items?.length === 0) {
+            Logger.log('no playlist found');
+            break;
+          } else {
+            for (
+              let j = 0;
+              j <
+              (playlistResponse.items as YouTube.Schema.PlaylistItem[]).length;
+              j++
+            ) {
+              const playlistItem = (
+                playlistResponse.items as YouTube.Schema.PlaylistItem[]
+              )[j];
+              Logger.log(
+                `[${playlistItem.snippet?.resourceId?.videoId}] Title: ${playlistItem.snippet?.title}`
+              );
+            }
+          }
+          nextPageToken = playlistResponse.nextPageToken;
+        } while (nextPageToken);
+      }
+    }
+  } catch (err: any) {
+    Logger.log(`Error - retrieveMyUploads(): ${err.message}`);
+  }
 }
 
 const categoryToAlbumIdMap: {[category: string]: string} = {
