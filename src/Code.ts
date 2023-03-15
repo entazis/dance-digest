@@ -50,42 +50,31 @@ function retrieveMyUploads() {
       Logger.log('no channels found');
       return;
     } else {
-      for (
-        let i = 0;
-        i < (results.items as YouTube.Schema.Channel[]).length;
-        i++
-      ) {
-        const item = (results.items as YouTube.Schema.Channel[])[i];
+      const videoIds: string[] = [];
+      for (const item of results.items || []) {
         // @ts-ignore
         const playlistId = item.contentDetails.relatedPlaylists.uploads;
         let nextPageToken = null;
         do {
-          const playlistResponse:
-            | YouTube.Schema.PlaylistItemListResponse
+          const playlistResponse: YouTube.Schema.PlaylistItemListResponse =
             // @ts-ignore
-            | undefined = YouTube.PlaylistItems.list('snippet', {
-            playlistId: playlistId,
-            maxResults: 25,
-            pageToken: nextPageToken,
-          });
+            YouTube.PlaylistItems.list('snippet', {
+              playlistId: playlistId,
+              maxResults: 25,
+              pageToken: nextPageToken,
+            });
           // @ts-ignore
           if (!playlistResponse || playlistResponse.items.length === 0) {
             Logger.log('no playlist found');
             break;
           } else {
-            for (
-              let j = 0;
-              j <
-              (playlistResponse.items as YouTube.Schema.PlaylistItem[]).length;
-              j++
-            ) {
-              const playlistItem = (
-                playlistResponse.items as YouTube.Schema.PlaylistItem[]
-              )[j];
+            for (const item of playlistResponse.items || []) {
               Logger.log(
                 // @ts-ignore
-                `[${playlistItem.snippet.resourceId.videoId}] Title: ${playlistItem.snippet.title}`
+                `[${item.snippet.resourceId.videoId}] Title: ${item.snippet.title}`
               );
+              // @ts-ignore
+              videoIds.push(item.snippet.resourceId.videoId);
             }
           }
           nextPageToken = playlistResponse.nextPageToken;
