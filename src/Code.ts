@@ -41,10 +41,12 @@ interface IMediaItem {
 
 function retrieveMyUploads() {
   try {
-    const results = YouTube.Channels?.list('contentDetails', {
+    // @ts-ignore
+    const results = YouTube.Channels.list('contentDetails', {
       mine: true,
     });
-    if (!results || results.items?.length === 0) {
+    // @ts-ignore
+    if (!results || results.items.length === 0) {
       Logger.log('no channels found');
       return;
     } else {
@@ -54,17 +56,20 @@ function retrieveMyUploads() {
         i++
       ) {
         const item = (results.items as YouTube.Schema.Channel[])[i];
-        const playlistId = item.contentDetails?.relatedPlaylists?.uploads;
+        // @ts-ignore
+        const playlistId = item.contentDetails.relatedPlaylists.uploads;
         let nextPageToken = null;
         do {
           const playlistResponse:
             | YouTube.Schema.PlaylistItemListResponse
-            | undefined = YouTube.PlaylistItems?.list('snippet', {
+            // @ts-ignore
+            | undefined = YouTube.PlaylistItems.list('snippet', {
             playlistId: playlistId,
             maxResults: 25,
             pageToken: nextPageToken,
           });
-          if (!playlistResponse || playlistResponse.items?.length === 0) {
+          // @ts-ignore
+          if (!playlistResponse || playlistResponse.items.length === 0) {
             Logger.log('no playlist found');
             break;
           } else {
@@ -78,7 +83,8 @@ function retrieveMyUploads() {
                 playlistResponse.items as YouTube.Schema.PlaylistItem[]
               )[j];
               Logger.log(
-                `[${playlistItem.snippet?.resourceId?.videoId}] Title: ${playlistItem.snippet?.title}`
+                // @ts-ignore
+                `[${playlistItem.snippet.resourceId.videoId}] Title: ${playlistItem.snippet.title}`
               );
             }
           }

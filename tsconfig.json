@@ -4,9 +4,10 @@
     //"isolatedModules": true, // cannot be changes
     "lib": ["es5","esnext"],
     //"module": "None", // cannot be changes
-    "noImplicitUseStrict": true,
+    //"noImplicitUseStrict": true,
     //"noLib": true, // cannot be changes
     //"noResolve": true, // cannot be changes
+    "skipLibCheck": true,
     "strict": true,
     "target": "ES2019",
     "types": ["google-apps-script"]
