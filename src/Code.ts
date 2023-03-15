@@ -69,16 +69,31 @@ function retrieveMyUploads() {
             break;
           } else {
             for (const item of playlistResponse.items || []) {
-              Logger.log(
-                // @ts-ignore
-                `[${item.snippet.resourceId.videoId}] Title: ${item.snippet.title}`
-              );
               // @ts-ignore
               videoIds.push(item.snippet.resourceId.videoId);
             }
           }
           nextPageToken = playlistResponse.nextPageToken;
         } while (nextPageToken);
+        for (const videoId of videoIds) {
+          const videoResponse: YouTube.Schema.VideoListResponse =
+            // @ts-ignore
+            YouTube.Videos.list('snippet', {
+              id: videoId,
+            });
+          // @ts-ignore
+          if (!videoResponse || videoResponse.items.length === 0) {
+            Logger.log('no video found');
+            break;
+          } else {
+            for (const item of videoResponse.items || []) {
+              Logger.log(
+                // @ts-ignore
+                `[${item.snippet?.title}] ${JSON.stringify(item.snippet?.tags)}`
+              );
+            }
+          }
+        }
       }
     }
   } catch (err: any) {
