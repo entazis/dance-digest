@@ -21,27 +21,31 @@ interface IMediaItem {
       focalLength: number;
       apertureFNumber: number;
       isoEquivalent: number;
-      exposureTime: string
+      exposureTime: string;
     };
     video: {
-      cameraMake: string,
-      cameraModel: string,
-      fps: number,
-      status: 'UNSPECIFIED' | 'PROCESSING' | 'READY' | 'FAILED',
-    }
+      cameraMake: string;
+      cameraModel: string;
+      fps: number;
+      status: 'UNSPECIFIED' | 'PROCESSING' | 'READY' | 'FAILED';
+    };
   };
   contributorInfo: {
-    profilePictureBaseUrl: string,
-    displayName: string
+    profilePictureBaseUrl: string;
+    displayName: string;
   };
   filename: string
 }
 
 const categoryToAlbumIdMap: {[category: string]: string} = {
-  bachata: 'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
-  kizomba: 'AB0dA_243Vlkg8GXGdVJYxWurWdx8wJhbRiy71DEAmf0ZfDMrDvT6RrxYvWrdLKo6bPZzr8K9Po0',
-  salsa: 'AB0dA_0FkOSUdjFy2OrLR80mMGAGA2qEV257dlTELzYJX7pt2FLMSmxbXcBNu4oFqO5PHiQ8AOUx',
-  reggaeton: 'AB0dA_0Fh2-aYxcvsIuGQUWrIKsFNwOkAJWLTLZvf6ptQxeBaFvdc5fW3IGZVU-82yhAbuIrCj-B'
+  bachata:
+    'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
+  kizomba:
+    'AB0dA_243Vlkg8GXGdVJYxWurWdx8wJhbRiy71DEAmf0ZfDMrDvT6RrxYvWrdLKo6bPZzr8K9Po0',
+  salsa:
+    'AB0dA_0FkOSUdjFy2OrLR80mMGAGA2qEV257dlTELzYJX7pt2FLMSmxbXcBNu4oFqO5PHiQ8AOUx',
+  reggaeton:
+    'AB0dA_0Fh2-aYxcvsIuGQUWrIKsFNwOkAJWLTLZvf6ptQxeBaFvdc5fW3IGZVU-82yhAbuIrCj-B',
 };
 const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
 
@@ -67,40 +71,56 @@ function sendDanceDigestEmail() {
         {
           to: email,
           subject: 'Daily Dance Digest',
-          templateName: 'template'
+          templateName: 'template',
         },
         selectedTitleUrls
-        );
+      );
     }
   } catch (err: any) {
-    Logger.log(`sendDanceDigestEmail() API failed with error ${err.toString()}`);
+    Logger.log(
+      `sendDanceDigestEmail() API failed with error ${err.toString()}`
+    );
   }
 }
 
-function sendEmail(emailPayload: {to: string, subject: string, templateName: string}, categoryTitleUrls: ICategoryTitleUrls): void {
-  const template = HtmlService.createTemplateFromFile(emailPayload.templateName);
-  template.categoryTitleUrls = categoryTitleUrls
-  GmailApp.sendEmail(
-    emailPayload.to,
-    emailPayload.subject,
-    '',
-    {
-      htmlBody: template.evaluate().getContent()
-    }
+function sendEmail(
+  emailPayload: {to: string; subject: string; templateName: string},
+  categoryTitleUrls: ICategoryTitleUrls
+): void {
+  const template = HtmlService.createTemplateFromFile(
+    emailPayload.templateName
   );
+  template.categoryTitleUrls = categoryTitleUrls;
+  GmailApp.sendEmail(emailPayload.to, emailPayload.subject, '', {
+    htmlBody: template.evaluate().getContent(),
+  });
 }
 
 function getAndParseVideos(category: string) {
-  const photosParams = getPhotosParams(ScriptApp.getOAuthToken(), categoryToAlbumIdMap[category]);
-  let response: {mediaItems: IMediaItem[]; nextPageToken?: string} = JSON.parse(UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText());
+  const photosParams = getPhotosParams(
+    ScriptApp.getOAuthToken(),
+    categoryToAlbumIdMap[category]
+  );
+  let response: {mediaItems: IMediaItem[]; nextPageToken?: string} = JSON.parse(
+    UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText()
+  );
   //TODO add mediaItems interface
-  let titleUrls = response.mediaItems.map(item => {return {title: item.filename, url: item.productUrl}});
+  let titleUrls = response.mediaItems.map(item => {
+    return {title: item.filename, url: item.productUrl};
+  });
   while (response.nextPageToken) {
     if (photosParams.payload) {
-      (photosParams.payload as {[key: string]: any}).pageToken = response.nextPageToken;
+      (photosParams.payload as {[key: string]: any}).pageToken =
+        response.nextPageToken;
     }
-    response = JSON.parse(UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText());
-    titleUrls = titleUrls.concat(response.mediaItems.map(item => {return {title: item.filename, url: item.productUrl}}));
+    response = JSON.parse(
+      UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText()
+    );
+    titleUrls = titleUrls.concat(
+      response.mediaItems.map(item => {
+        return {title: item.filename, url: item.productUrl};
+      })
+    );
   }
   return titleUrls;
 }
@@ -117,8 +137,12 @@ function getConfig(): IConfigs {
   const letter = columnToLetter(genreCount);
 
   const config: IConfigs = {};
-  const categories = spreadsheet.getRange(`config!B1:${columnToLetter(1 + genreCount)}1`).getValues()[0];
-  const emails = spreadsheet.getRange(`config!A2:A${1 + emailCount}`).getValues();
+  const categories = spreadsheet
+    .getRange(`config!B1:${columnToLetter(1 + genreCount)}1`)
+    .getValues()[0];
+  const emails = spreadsheet
+    .getRange(`config!A2:A${1 + emailCount}`)
+    .getValues();
   const selections = spreadsheet.getRange('config!B2:E2').getValues();
 
   for (const [i, email] of emails.entries()) {
@@ -127,17 +151,16 @@ function getConfig(): IConfigs {
       [categories[1]]: selections[i][1],
       [categories[2]]: selections[i][2],
       [categories[3]]: selections[i][3],
-    }
+    };
   }
 
   return config;
 }
 
-function columnToLetter(column: number)
-{
-  var temp, letter = '';
-  while (column > 0)
-  {
+function columnToLetter(column: number) {
+  let temp,
+    letter = '';
+  while (column > 0) {
     temp = (column - 1) % 26;
     letter = String.fromCharCode(temp + 65) + letter;
     column = (column - temp - 1) / 26;
@@ -145,23 +168,33 @@ function columnToLetter(column: number)
   return letter;
 }
 
-const getDriveExportUrl = (emailTemplateId: string) => `https://docs.google.com/feeds/download/documents/export/Export?id=${emailTemplateId}&exportFormat=html`;
-const mediaItemsSearchUrl = 'https://photoslibrary.googleapis.com/v1/mediaItems:search';
-const getPhotosParams = (scriptOAuthToken: string, albumId: string): GoogleAppsScript.URL_Fetch.URLFetchRequestOptions => {return {
-  headers: {
-    Authorization: `Bearer ${scriptOAuthToken}`
-  },
-  method: 'post',
-  payload: {
-    pageSize: '100',
-    albumId: albumId
-  }
-}};
-const getDocsParams = (scriptOAuthToken: string) => {return {
-  method: 'get',
-  headers: {
-    Authorization: `Bearer ${scriptOAuthToken}`
-  },
-  muteHttpExceptions: true,
-}};
-const getPhotoUrl = (photoId: string) => `https://photos.google.com/photo/${photoId}`;
+const getDriveExportUrl = (emailTemplateId: string) =>
+  `https://docs.google.com/feeds/download/documents/export/Export?id=${emailTemplateId}&exportFormat=html`;
+const mediaItemsSearchUrl =
+  'https://photoslibrary.googleapis.com/v1/mediaItems:search';
+const getPhotosParams = (
+  scriptOAuthToken: string,
+  albumId: string
+): GoogleAppsScript.URL_Fetch.URLFetchRequestOptions => {
+  return {
+    headers: {
+      Authorization: `Bearer ${scriptOAuthToken}`,
+    },
+    method: 'post',
+    payload: {
+      pageSize: '100',
+      albumId: albumId,
+    },
+  };
+};
+const getDocsParams = (scriptOAuthToken: string) => {
+  return {
+    method: 'get',
+    headers: {
+      Authorization: `Bearer ${scriptOAuthToken}`,
+    },
+    muteHttpExceptions: true,
+  };
+};
+const getPhotoUrl = (photoId: string) =>
+  `https://photos.google.com/photo/${photoId}`;
