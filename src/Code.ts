@@ -39,6 +39,8 @@ interface IMediaItem {
   filename: string;
 }
 
+const youtubeUrl = 'https://www.youtube.com/watch?v=';
+
 function retrieveMyUploads() {
   try {
     // @ts-ignore
@@ -91,6 +93,7 @@ function retrieveMyUploads() {
                 // @ts-ignore
                 `[${item.snippet?.title}] ${JSON.stringify(item.snippet?.tags)}`
               );
+              Logger.log(youtubeUrl + item.id);
             }
           }
         }
