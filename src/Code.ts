@@ -58,6 +58,13 @@ const categoryToAlbumIdMap: {[category: string]: string} = {
 const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
 
+const test = () => {
+  const results = getYoutubeUploads();
+  results.forEach(result => {
+    Logger.log(JSON.stringify(result));
+  });
+};
+
 const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
 
 function sendDanceDigestEmail() {
