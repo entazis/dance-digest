@@ -60,6 +60,45 @@ const youtubeUrl = 'https://www.youtube.com/watch?v=';
 
 const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
 
+function sendDanceDigestEmail() {
+  try {
+    const config = getConfig();
+
+    for (const email in config) {
+      const selected = config[email];
+      const categoryVideos: ICategoryVideos = {};
+      for (const category in selected) {
+        categoryVideos[category] = getVideos(category, selected[category]);
+      }
+      sendEmail(
+        {
+          to: email,
+          subject: 'Daily Dance Digest',
+          templateName: 'template',
+        },
+        categoryVideos
+      );
+    }
+  } catch (err: any) {
+    Logger.log(
+      `sendDanceDigestEmail() API failed with error ${err.toString()}`
+    );
+  }
+}
+
+function getVideos(category: string, count: number): IVideo[] {
+  const selectedVideos: IVideo[] = [];
+  const videos: IVideo[] = [
+    ...getYoutubeUploads(),
+    ...getGooglePhotosVideos(category),
+  ];
+  for (let i = 0; i < count; i++) {
+    //TODO implement more robust selection
+    selectedVideos.push(videos[getRandomInt(videos.length)]);
+  }
+  return selectedVideos;
+}
+
 function getYoutubeUploads(): IVideo[] {
   try {
     const results = YouTube.Channels.list('contentDetails', {
@@ -107,9 +146,6 @@ function getYoutubeUploads(): IVideo[] {
                 title: item.snippet.title,
                 url: getYoutubeVideoUrl(videoId),
               };
-              Logger.log(
-                `${video.title} ${JSON.stringify(video.tags)} ${video.url}`
-              );
               videos.push(video);
             }
           }
@@ -123,57 +159,7 @@ function getYoutubeUploads(): IVideo[] {
   }
 }
 
-function sendDanceDigestEmail() {
-  try {
-    const config = getConfig();
-
-    for (const email in config) {
-      const selected = config[email];
-      const categoryVideos: ICategoryVideos = {};
-      for (const category in selected) {
-        categoryVideos[category] = [];
-        const danceVideos = getAndParseVideos(category);
-        for (let i = 0; i < selected[category]; i++) {
-          //TODO implement more robust selection
-          const selectedVideo = danceVideos[getRandomInt(danceVideos.length)];
-          categoryVideos[category].push({
-            id: null,
-            tags: [],
-            title: selectedVideo.title,
-            url: selectedVideo.url,
-          });
-        }
-      }
-      sendEmail(
-        {
-          to: email,
-          subject: 'Daily Dance Digest',
-          templateName: 'template',
-        },
-        categoryVideos
-      );
-    }
-  } catch (err: any) {
-    Logger.log(
-      `sendDanceDigestEmail() API failed with error ${err.toString()}`
-    );
-  }
-}
-
-function sendEmail(
-  emailPayload: {to: string; subject: string; templateName: string},
-  categoryVideos: ICategoryVideos
-): void {
-  const template = HtmlService.createTemplateFromFile(
-    emailPayload.templateName
-  );
-  template.categoryVideos = categoryVideos;
-  GmailApp.sendEmail(emailPayload.to, emailPayload.subject, '', {
-    htmlBody: template.evaluate().getContent(),
-  });
-}
-
-function getAndParseVideos(category: string): IVideo[] {
+function getGooglePhotosVideos(category: string): IVideo[] {
   const photosParams = getPhotosParams(
     ScriptApp.getOAuthToken(),
     categoryToAlbumIdMap[category]
@@ -199,6 +185,19 @@ function getAndParseVideos(category: string): IVideo[] {
     );
   }
   return danceVideos;
+}
+
+function sendEmail(
+  emailPayload: {to: string; subject: string; templateName: string},
+  categoryVideos: ICategoryVideos
+): void {
+  const template = HtmlService.createTemplateFromFile(
+    emailPayload.templateName
+  );
+  template.categoryVideos = categoryVideos;
+  GmailApp.sendEmail(emailPayload.to, emailPayload.subject, '', {
+    htmlBody: template.evaluate().getContent(),
+  });
 }
 
 function getRandomInt(max: number) {
