@@ -4,12 +4,12 @@
     <base target="_top">
   </head>
   <body>
-    <? for (const category in categoryTitleUrls) { ?>
-      <? if (categoryTitleUrls[category].length < 1) { continue; }?> 
+    <? for (const category in categoryVideos) { ?>
+      <? if (categoryVideos[category].length < 1) { continue; }?>
       <h2><?= category ?></h2>
       <ul style="list-style-type: square">
-        <? for (var i = 0; i < categoryTitleUrls[category].length; i++) { ?>
-          <li><a href="<?= categoryTitleUrls[category][i].url ?>"><?= categoryTitleUrls[category][i].title ?></a></li>
+        <? for (var i = 0; i < categoryVideos[category].length; i++) { ?>
+          <li><a href="<?= categoryVideos[category][i].url ?>"><?= categoryVideos[category][i].title ?></a></li>
       <? } ?>
       </ul>
     <? } ?>

@@ -1,7 +1,13 @@
 import YouTube = GoogleAppsScript.YouTube;
 
-interface ICategoryTitleUrls {
-  [category: string]: {title: string; url: string}[];
+interface ICategoryVideos {
+  [category: string]: IVideo[];
+}
+interface IVideo {
+  id: string;
+  tags: string[];
+  title: string;
+  url: string;
 }
 interface IConfigs {
   [email: string]: {[category: string]: number};
@@ -39,20 +45,33 @@ interface IMediaItem {
   filename: string;
 }
 
+const categoryToAlbumIdMap: {[category: string]: string} = {
+  bachata:
+    'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
+  kizomba:
+    'AB0dA_243Vlkg8GXGdVJYxWurWdx8wJhbRiy71DEAmf0ZfDMrDvT6RrxYvWrdLKo6bPZzr8K9Po0',
+  salsa:
+    'AB0dA_0FkOSUdjFy2OrLR80mMGAGA2qEV257dlTELzYJX7pt2FLMSmxbXcBNu4oFqO5PHiQ8AOUx',
+  reggaeton:
+    'AB0dA_0Fh2-aYxcvsIuGQUWrIKsFNwOkAJWLTLZvf6ptQxeBaFvdc5fW3IGZVU-82yhAbuIrCj-B',
+};
+const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
 
-function retrieveMyUploads() {
+const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
+
+function getYoutubeUploads(): IVideo[] {
   try {
     const results = YouTube.Channels.list('contentDetails', {
       mine: true,
     });
     if (!results || results.items.length === 0) {
       Logger.log('no channels found');
-      return;
+      return [];
     } else {
-      const videoIds: string[] = [];
+      const videos: IVideo[] = [];
       for (const item of results.items || []) {
-        // @ts-ignore
+        const videoIds: string[] = [];
         const playlistId = item.contentDetails.relatedPlaylists.uploads;
         let nextPageToken = null;
         do {
@@ -82,32 +101,27 @@ function retrieveMyUploads() {
             break;
           } else {
             for (const item of videoResponse.items || []) {
+              const video: IVideo = {
+                id: item.id,
+                tags: item.snippet.tags,
+                title: item.snippet.title,
+                url: getYoutubeVideoUrl(videoId),
+              };
               Logger.log(
-                // @ts-ignore
-                `[${item.snippet?.title}] ${JSON.stringify(item.snippet?.tags)}`
+                `${video.title} ${JSON.stringify(video.tags)} ${video.url}`
               );
-              Logger.log(youtubeUrl + item.id);
+              videos.push(video);
             }
           }
         }
       }
+      return videos;
     }
   } catch (err: any) {
-    Logger.log(`Error - retrieveMyUploads(): ${err.message}`);
+    Logger.log(`Error - getYoutubeUploads(): ${err.message}`);
+    return [];
   }
 }
-
-const categoryToAlbumIdMap: {[category: string]: string} = {
-  bachata:
-    'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
-  kizomba:
-    'AB0dA_243Vlkg8GXGdVJYxWurWdx8wJhbRiy71DEAmf0ZfDMrDvT6RrxYvWrdLKo6bPZzr8K9Po0',
-  salsa:
-    'AB0dA_0FkOSUdjFy2OrLR80mMGAGA2qEV257dlTELzYJX7pt2FLMSmxbXcBNu4oFqO5PHiQ8AOUx',
-  reggaeton:
-    'AB0dA_0Fh2-aYxcvsIuGQUWrIKsFNwOkAJWLTLZvf6ptQxeBaFvdc5fW3IGZVU-82yhAbuIrCj-B',
-};
-const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
 
 function sendDanceDigestEmail() {
   try {
@@ -115,13 +129,16 @@ function sendDanceDigestEmail() {
 
     for (const email in config) {
       const selected = config[email];
-      const selectedTitleUrls: ICategoryTitleUrls = {};
+      const categoryVideos: ICategoryVideos = {};
       for (const category in selected) {
-        selectedTitleUrls[category] = [];
-        const titleUrls = getAndParseVideos(category);
+        categoryVideos[category] = [];
+        const danceVideos = getAndParseVideos(category);
         for (let i = 0; i < selected[category]; i++) {
-          const selectedVideo = titleUrls[getRandomInt(titleUrls.length)];
-          selectedTitleUrls[category].push({
+          //TODO implement more robust selection
+          const selectedVideo = danceVideos[getRandomInt(danceVideos.length)];
+          categoryVideos[category].push({
+            id: null,
+            tags: [],
             title: selectedVideo.title,
             url: selectedVideo.url,
           });
@@ -133,7 +150,7 @@ function sendDanceDigestEmail() {
           subject: 'Daily Dance Digest',
           templateName: 'template',
         },
-        selectedTitleUrls
+        categoryVideos
       );
     }
   } catch (err: any) {
@@ -145,18 +162,18 @@ function sendDanceDigestEmail() {
 
 function sendEmail(
   emailPayload: {to: string; subject: string; templateName: string},
-  categoryTitleUrls: ICategoryTitleUrls
+  categoryVideos: ICategoryVideos
 ): void {
   const template = HtmlService.createTemplateFromFile(
     emailPayload.templateName
   );
-  template.categoryTitleUrls = categoryTitleUrls;
+  template.categoryVideos = categoryVideos;
   GmailApp.sendEmail(emailPayload.to, emailPayload.subject, '', {
     htmlBody: template.evaluate().getContent(),
   });
 }
 
-function getAndParseVideos(category: string) {
+function getAndParseVideos(category: string): IVideo[] {
   const photosParams = getPhotosParams(
     ScriptApp.getOAuthToken(),
     categoryToAlbumIdMap[category]
@@ -164,9 +181,8 @@ function getAndParseVideos(category: string) {
   let response: {mediaItems: IMediaItem[]; nextPageToken?: string} = JSON.parse(
     UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText()
   );
-  //TODO add mediaItems interface
-  let titleUrls = response.mediaItems.map(item => {
-    return {title: item.filename, url: item.productUrl};
+  let danceVideos: IVideo[] = response.mediaItems.map(item => {
+    return {id: null, tags: [], title: item.filename, url: item.productUrl};
   });
   while (response.nextPageToken) {
     if (photosParams.payload) {
@@ -176,13 +192,13 @@ function getAndParseVideos(category: string) {
     response = JSON.parse(
       UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText()
     );
-    titleUrls = titleUrls.concat(
+    danceVideos = danceVideos.concat(
       response.mediaItems.map(item => {
-        return {title: item.filename, url: item.productUrl};
+        return {id: null, tags: [], title: item.filename, url: item.productUrl};
       })
     );
   }
-  return titleUrls;
+  return danceVideos;
 }
 
 function getRandomInt(max: number) {
