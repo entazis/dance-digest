@@ -43,11 +43,9 @@ const youtubeUrl = 'https://www.youtube.com/watch?v=';
 
 function retrieveMyUploads() {
   try {
-    // @ts-ignore
     const results = YouTube.Channels.list('contentDetails', {
       mine: true,
     });
-    // @ts-ignore
     if (!results || results.items.length === 0) {
       Logger.log('no channels found');
       return;
@@ -59,19 +57,16 @@ function retrieveMyUploads() {
         let nextPageToken = null;
         do {
           const playlistResponse: YouTube.Schema.PlaylistItemListResponse =
-            // @ts-ignore
             YouTube.PlaylistItems.list('snippet', {
               playlistId: playlistId,
               maxResults: 25,
               pageToken: nextPageToken,
             });
-          // @ts-ignore
           if (!playlistResponse || playlistResponse.items.length === 0) {
             Logger.log('no playlist found');
             break;
           } else {
             for (const item of playlistResponse.items || []) {
-              // @ts-ignore
               videoIds.push(item.snippet.resourceId.videoId);
             }
           }
@@ -79,11 +74,9 @@ function retrieveMyUploads() {
         } while (nextPageToken);
         for (const videoId of videoIds) {
           const videoResponse: YouTube.Schema.VideoListResponse =
-            // @ts-ignore
             YouTube.Videos.list('snippet', {
               id: videoId,
             });
-          // @ts-ignore
           if (!videoResponse || videoResponse.items.length === 0) {
             Logger.log('no video found');
             break;
