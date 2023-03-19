@@ -110,45 +110,11 @@ function getYoutubeUploads(): IVideo[] {
     } else {
       const videos: IVideo[] = [];
       for (const item of results.items || []) {
-        const videoIds: string[] = [];
-        const playlistId = item.contentDetails.relatedPlaylists.uploads;
-        let nextPageToken = null;
-        do {
-          const playlistResponse: YouTube.Schema.PlaylistItemListResponse =
-            YouTube.PlaylistItems.list('snippet', {
-              playlistId: playlistId,
-              maxResults: 25,
-              pageToken: nextPageToken,
-            });
-          if (!playlistResponse || playlistResponse.items.length === 0) {
-            Logger.log('no playlist found');
-            break;
-          } else {
-            for (const item of playlistResponse.items || []) {
-              videoIds.push(item.snippet.resourceId.videoId);
-            }
-          }
-          nextPageToken = playlistResponse.nextPageToken;
-        } while (nextPageToken);
+        const videoIds: string[] = getVideoIdsOfPlaylist(
+          item.contentDetails.relatedPlaylists.uploads
+        );
         for (const videoId of videoIds) {
-          const videoResponse: YouTube.Schema.VideoListResponse =
-            YouTube.Videos.list('snippet', {
-              id: videoId,
-            });
-          if (!videoResponse || videoResponse.items.length === 0) {
-            Logger.log('no video found');
-            break;
-          } else {
-            for (const item of videoResponse.items || []) {
-              const video: IVideo = {
-                id: item.id,
-                tags: item.snippet.tags,
-                title: item.snippet.title,
-                url: getYoutubeVideoUrl(videoId),
-              };
-              videos.push(video);
-            }
-          }
+          videos.push(getVideoDetails(videoId));
         }
       }
       return videos;
@@ -156,6 +122,55 @@ function getYoutubeUploads(): IVideo[] {
   } catch (err: any) {
     Logger.log(`Error - getYoutubeUploads(): ${err.message}`);
     return [];
+  }
+}
+
+function getVideoIdsOfPlaylist(playlistId: string): string[] {
+  const videoIds: string[] = [];
+  let nextPageToken = null;
+  do {
+    const playlistResponse: YouTube.Schema.PlaylistItemListResponse =
+      YouTube.PlaylistItems.list('snippet', {
+        playlistId: playlistId,
+        maxResults: 25,
+        pageToken: nextPageToken,
+      });
+    if (!playlistResponse || playlistResponse.items.length === 0) {
+      Logger.log('no playlist found');
+      break;
+    } else {
+      for (const item of playlistResponse.items || []) {
+        videoIds.push(item.snippet.resourceId.videoId);
+      }
+    }
+    nextPageToken = playlistResponse.nextPageToken;
+  } while (nextPageToken);
+  return videoIds;
+}
+
+function getVideoDetails(videoId: string): IVideo {
+  const videoResponse: YouTube.Schema.VideoListResponse = YouTube.Videos.list(
+    'snippet',
+    {
+      id: videoId,
+    }
+  );
+  if (!videoResponse || videoResponse.items.length === 0) {
+    Logger.log(`no video found for ${videoId}`);
+    throw new Error(`no video found for id ${videoId}`);
+  } else {
+    if (videoResponse.items.length > 1) {
+      Logger.log(`more than one video found for id ${videoId}`);
+      throw new Error(`more than one video found for id ${videoId}`);
+    } else {
+      const item = videoResponse.items[0];
+      return {
+        id: item.id,
+        tags: item.snippet.tags,
+        title: item.snippet.title,
+        url: getYoutubeVideoUrl(videoId),
+      };
+    }
   }
 }
 
