@@ -59,7 +59,7 @@ const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
 
 const test = () => {
-  const results = getYoutubeUploads();
+  const results = getYoutubeUploads(['bachata']);
   results.forEach(result => {
     Logger.log(JSON.stringify(result));
   });
@@ -96,7 +96,7 @@ function sendDanceDigestEmail() {
 function getVideos(category: string, count: number): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const videos: IVideo[] = [
-    ...getYoutubeUploads(),
+    ...getYoutubeUploads([category]),
     ...getGooglePhotosVideos(category),
   ];
   for (let i = 0; i < count; i++) {
@@ -106,7 +106,7 @@ function getVideos(category: string, count: number): IVideo[] {
   return selectedVideos;
 }
 
-function getYoutubeUploads(): IVideo[] {
+function getYoutubeUploads(tags: string[]): IVideo[] {
   try {
     const results = YouTube.Channels.list('contentDetails', {
       mine: true,
@@ -124,7 +124,7 @@ function getYoutubeUploads(): IVideo[] {
           videos.push(getVideoDetails(videoId));
         }
       }
-      return videos;
+      return videos.filter(video => video.tags.some(tag => tags.includes(tag)));
     }
   } catch (err: any) {
     Logger.log(`Error - getYoutubeUploads(): ${err.message}`);
