@@ -161,39 +161,24 @@ function getVideosOfPlaylist(playlistId: string): IVideo[] {
     nextPageToken = playlistResponse.nextPageToken;
   } while (nextPageToken);
 
-  //TODO optimize to get all video details in one call
-  const videos: IVideo[] = [];
-  for (const videoId of videoIds) {
-    videos.push(getVideoDetails(videoId));
-  }
-
-  return videos;
+  return getVideoDetails(videoIds);
 }
 
-function getVideoDetails(videoId: string): IVideo {
+function getVideoDetails(videoIds: string[]): IVideo[] {
   const videoResponse: YouTube.Schema.VideoListResponse = YouTube.Videos.list(
     'snippet',
     {
-      id: videoId,
+      id: videoIds.join(','),
     }
   );
-  if (!videoResponse || videoResponse.items.length === 0) {
-    Logger.log(`no video found for ${videoId}`);
-    throw new Error(`no video found for id ${videoId}`);
-  } else {
-    if (videoResponse.items.length > 1) {
-      Logger.log(`more than one video found for id ${videoId}`);
-      throw new Error(`more than one video found for id ${videoId}`);
-    } else {
-      const item = videoResponse.items[0];
-      return {
-        id: item.id,
-        tags: item.snippet.tags,
-        title: item.snippet.title,
-        url: getYoutubeVideoUrl(videoId),
-      };
-    }
-  }
+  return videoResponse.items.map(item => {
+    return {
+      id: item.id,
+      tags: item.snippet.tags,
+      title: item.snippet.title,
+      url: getYoutubeVideoUrl(item.id),
+    };
+  });
 }
 
 function sendEmail(user: IUser, videos: IVideo[]): void {
