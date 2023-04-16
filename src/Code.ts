@@ -44,9 +44,11 @@ interface IMediaItem {
   filename: string;
 }
 
+const emailTemplateName = 'template';
+const emailSubject = 'Daily Dance Digest';
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
 const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
-const categoryToPhotosAlbumIdMap: {[category: string]: string} = {
+const photosAlbumNameToIdMap: {[albumName: string]: string} = {
   bachata:
     'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
   kizomba:
@@ -72,14 +74,7 @@ function sendDanceDigestEmail() {
     Logger.log(JSON.stringify(users));
 
     for (const user of users) {
-      sendEmail(
-        {
-          to: user.email,
-          subject: 'Daily Dance Digest',
-          templateName: 'template',
-        },
-        getVideos(user.tags, user.count)
-      );
+      sendEmail(user, getVideos(user.tags, user.count));
     }
   } catch (err: any) {
     Logger.log(
@@ -109,7 +104,7 @@ function getVideos(tags: string[], count: number): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const videos: IVideo[] = [
     ...getYoutubeUploads(tags),
-    ...getGooglePhotosVideos(tags[0]),
+    ...tags.map(tag => getGooglePhotosVideos(tag)).flat(),
   ];
   for (let i = 0; i < count; i++) {
     //TODO implement more robust selection
@@ -134,8 +129,10 @@ function getYoutubeUploads(tags: string[]): IVideo[] {
         );
         videos.push(...uploadVideos);
       }
-      //TODO create more robust filtering
-      return videos.filter(video => video.tags.some(tag => tags.includes(tag)));
+      //TODO create more robust filtering (use expressions and set operations)
+      return videos.filter(video =>
+        tags.every(tag => video.tags.includes(tag))
+      );
     }
   } catch (err: any) {
     Logger.log(`Error - getYoutubeUploads(): ${err.message}`);
@@ -199,27 +196,28 @@ function getVideoDetails(videoId: string): IVideo {
   }
 }
 
-function sendEmail(
-  emailPayload: {to: string; subject: string; templateName: string},
-  videos: IVideo[]
-): void {
-  const template = HtmlService.createTemplateFromFile(
-    emailPayload.templateName
-  );
+function sendEmail(user: IUser, videos: IVideo[]): void {
+  const template = HtmlService.createTemplateFromFile(emailTemplateName);
   template.videos = videos;
-  GmailApp.sendEmail(emailPayload.to, emailPayload.subject, '', {
+  GmailApp.sendEmail(user.email, getEmailSubject(user), '', {
     htmlBody: template.evaluate().getContent(),
   });
 }
 
+function getEmailSubject(user: IUser): string {
+  return `${emailSubject}: ${user.tags.join(', ')}`;
+}
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
 }
 
-function getGooglePhotosVideos(category: string): IVideo[] {
+function getGooglePhotosVideos(albumName: string): IVideo[] {
+  if (!photosAlbumNameToIdMap[albumName]) {
+    return [];
+  }
   const photosParams = getPhotosParams(
     ScriptApp.getOAuthToken(),
-    categoryToPhotosAlbumIdMap[category]
+    photosAlbumNameToIdMap[albumName]
   );
   let response: {mediaItems: IMediaItem[]; nextPageToken?: string} = JSON.parse(
     UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText()
