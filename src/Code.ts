@@ -44,7 +44,9 @@ interface IMediaItem {
   filename: string;
 }
 
-const categoryToAlbumIdMap: {[category: string]: string} = {
+const youtubeUrl = 'https://www.youtube.com/watch?v=';
+const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
+const categoryToPhotosAlbumIdMap: {[category: string]: string} = {
   bachata:
     'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
   kizomba:
@@ -54,8 +56,6 @@ const categoryToAlbumIdMap: {[category: string]: string} = {
   reggaeton:
     'AB0dA_0Fh2-aYxcvsIuGQUWrIKsFNwOkAJWLTLZvf6ptQxeBaFvdc5fW3IGZVU-82yhAbuIrCj-B',
 };
-const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
-const youtubeUrl = 'https://www.youtube.com/watch?v=';
 
 const test = () => {
   const results = getYoutubeUploads(['bachata']);
@@ -88,6 +88,23 @@ function sendDanceDigestEmail() {
   }
 }
 
+function getUsers(): IUser[] {
+  const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
+  const userValues = spreadsheet
+    .getRange('users!A2:C')
+    .getValues()
+    .filter(row => row[0]);
+  const users: IUser[] = [];
+  for (const userValue of userValues) {
+    users.push({
+      email: userValue[0],
+      tags: userValue[1].split(',').map((tag: string) => tag.trim()),
+      count: userValue[2],
+    });
+  }
+  return users;
+}
+
 function getVideos(tags: string[], count: number): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const videos: IVideo[] = [
@@ -112,13 +129,10 @@ function getYoutubeUploads(tags: string[]): IVideo[] {
     } else {
       const videos: IVideo[] = [];
       for (const item of results.items || []) {
-        //TODO optimize to get all video details in one call
-        const videoIds: string[] = getVideoIdsOfPlaylist(
+        const uploadVideos: IVideo[] = getVideosOfPlaylist(
           item.contentDetails.relatedPlaylists.uploads
         );
-        for (const videoId of videoIds) {
-          videos.push(getVideoDetails(videoId));
-        }
+        videos.push(...uploadVideos);
       }
       //TODO create more robust filtering
       return videos.filter(video => video.tags.some(tag => tags.includes(tag)));
@@ -129,7 +143,7 @@ function getYoutubeUploads(tags: string[]): IVideo[] {
   }
 }
 
-function getVideoIdsOfPlaylist(playlistId: string): string[] {
+function getVideosOfPlaylist(playlistId: string): IVideo[] {
   const videoIds: string[] = [];
   let nextPageToken = null;
   do {
@@ -149,7 +163,14 @@ function getVideoIdsOfPlaylist(playlistId: string): string[] {
     }
     nextPageToken = playlistResponse.nextPageToken;
   } while (nextPageToken);
-  return videoIds;
+
+  //TODO optimize to get all video details in one call
+  const videos: IVideo[] = [];
+  for (const videoId of videoIds) {
+    videos.push(getVideoDetails(videoId));
+  }
+
+  return videos;
 }
 
 function getVideoDetails(videoId: string): IVideo {
@@ -178,10 +199,27 @@ function getVideoDetails(videoId: string): IVideo {
   }
 }
 
+function sendEmail(
+  emailPayload: {to: string; subject: string; templateName: string},
+  videos: IVideo[]
+): void {
+  const template = HtmlService.createTemplateFromFile(
+    emailPayload.templateName
+  );
+  template.videos = videos;
+  GmailApp.sendEmail(emailPayload.to, emailPayload.subject, '', {
+    htmlBody: template.evaluate().getContent(),
+  });
+}
+
+function getRandomInt(max: number) {
+  return Math.floor(Math.random() * max);
+}
+
 function getGooglePhotosVideos(category: string): IVideo[] {
   const photosParams = getPhotosParams(
     ScriptApp.getOAuthToken(),
-    categoryToAlbumIdMap[category]
+    categoryToPhotosAlbumIdMap[category]
   );
   let response: {mediaItems: IMediaItem[]; nextPageToken?: string} = JSON.parse(
     UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText()
@@ -204,40 +242,6 @@ function getGooglePhotosVideos(category: string): IVideo[] {
     );
   }
   return danceVideos;
-}
-
-function sendEmail(
-  emailPayload: {to: string; subject: string; templateName: string},
-  videos: IVideo[]
-): void {
-  const template = HtmlService.createTemplateFromFile(
-    emailPayload.templateName
-  );
-  template.videos = videos;
-  GmailApp.sendEmail(emailPayload.to, emailPayload.subject, '', {
-    htmlBody: template.evaluate().getContent(),
-  });
-}
-
-function getRandomInt(max: number) {
-  return Math.floor(Math.random() * max);
-}
-
-function getUsers(): IUser[] {
-  const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
-  const userValues = spreadsheet
-    .getRange('users!A2:C')
-    .getValues()
-    .filter(row => row[0]);
-  const users: IUser[] = [];
-  for (const userValue of userValues) {
-    users.push({
-      email: userValue[0],
-      tags: userValue[1].split(',').map((tag: string) => tag.trim()),
-      count: userValue[2],
-    });
-  }
-  return users;
 }
 const mediaItemsSearchUrl =
   'https://photoslibrary.googleapis.com/v1/mediaItems:search';
