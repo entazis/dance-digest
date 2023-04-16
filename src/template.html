@@ -2,16 +2,18 @@
 <html>
   <head>
     <base target="_top">
+    <title>Dance Digest</title>
   </head>
   <body>
-    <? for (const category in categoryVideos) { ?>
-      <? if (categoryVideos[category].length < 1) { continue; }?>
-      <h2><?= category ?></h2>
-      <ul style="list-style-type: square">
-        <? for (var i = 0; i < categoryVideos[category].length; i++) { ?>
-          <li><a href="<?= categoryVideos[category][i].url ?>"><?= categoryVideos[category][i].title ?></a></li>
+    <ul style="list-style-type: square">
+      <? for (const video of videos) { ?>
+        <li>
+          <a href="<?= video.url ?>"><?= video.title ?></a>:
+          <? for (const tag of video.tags) { ?>
+            <span><?= tag ?></span>
+          <? } ?>
+        </li>
       <? } ?>
-      </ul>
-    <? } ?>
+    </ul>
   </body>
 </html>

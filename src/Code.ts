@@ -1,16 +1,15 @@
 import YouTube = GoogleAppsScript.YouTube;
 
-interface ICategoryVideos {
-  [category: string]: IVideo[];
-}
 interface IVideo {
   id: string;
   tags: string[];
   title: string;
   url: string;
 }
-interface IConfigs {
-  [email: string]: {[category: string]: number};
+interface IUser {
+  email: string;
+  tags: string[];
+  count: number;
 }
 // https://developers.google.com/photos/library/reference/rest/v1/mediaItems
 interface IMediaItem {
@@ -69,21 +68,17 @@ const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
 
 function sendDanceDigestEmail() {
   try {
-    const config = getConfig();
+    const users = getUsers();
+    Logger.log(JSON.stringify(users));
 
-    for (const email in config) {
-      const selected = config[email];
-      const categoryVideos: ICategoryVideos = {};
-      for (const category in selected) {
-        categoryVideos[category] = getVideos(category, selected[category]);
-      }
+    for (const user of users) {
       sendEmail(
         {
-          to: email,
+          to: user.email,
           subject: 'Daily Dance Digest',
           templateName: 'template',
         },
-        categoryVideos
+        getVideos(user.tags, user.count)
       );
     }
   } catch (err: any) {
@@ -93,11 +88,11 @@ function sendDanceDigestEmail() {
   }
 }
 
-function getVideos(category: string, count: number): IVideo[] {
+function getVideos(tags: string[], count: number): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const videos: IVideo[] = [
-    ...getYoutubeUploads([category]),
-    ...getGooglePhotosVideos(category),
+    ...getYoutubeUploads(tags),
+    ...getGooglePhotosVideos(tags[0]),
   ];
   for (let i = 0; i < count; i++) {
     //TODO implement more robust selection
@@ -117,6 +112,7 @@ function getYoutubeUploads(tags: string[]): IVideo[] {
     } else {
       const videos: IVideo[] = [];
       for (const item of results.items || []) {
+        //TODO optimize to get all video details in one call
         const videoIds: string[] = getVideoIdsOfPlaylist(
           item.contentDetails.relatedPlaylists.uploads
         );
@@ -124,6 +120,7 @@ function getYoutubeUploads(tags: string[]): IVideo[] {
           videos.push(getVideoDetails(videoId));
         }
       }
+      //TODO create more robust filtering
       return videos.filter(video => video.tags.some(tag => tags.includes(tag)));
     }
   } catch (err: any) {
@@ -211,12 +208,12 @@ function getGooglePhotosVideos(category: string): IVideo[] {
 
 function sendEmail(
   emailPayload: {to: string; subject: string; templateName: string},
-  categoryVideos: ICategoryVideos
+  videos: IVideo[]
 ): void {
   const template = HtmlService.createTemplateFromFile(
     emailPayload.templateName
   );
-  template.categoryVideos = categoryVideos;
+  template.videos = videos;
   GmailApp.sendEmail(emailPayload.to, emailPayload.subject, '', {
     htmlBody: template.evaluate().getContent(),
   });
@@ -226,47 +223,22 @@ function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
 }
 
-function getConfig(): IConfigs {
+function getUsers(): IUser[] {
   const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
-  const emailCount = spreadsheet.getRange('metadata!A2').getValue();
-  const genreCount = spreadsheet.getRange('metadata!B2').getValue();
-
-  const letter = columnToLetter(genreCount);
-
-  const config: IConfigs = {};
-  const categories = spreadsheet
-    .getRange(`config!B1:${columnToLetter(1 + genreCount)}1`)
-    .getValues()[0];
-  const emails = spreadsheet
-    .getRange(`config!A2:A${1 + emailCount}`)
-    .getValues();
-  const selections = spreadsheet.getRange('config!B2:E2').getValues();
-
-  for (const [i, email] of emails.entries()) {
-    config[email[0]] = {
-      [categories[0]]: selections[i][0],
-      [categories[1]]: selections[i][1],
-      [categories[2]]: selections[i][2],
-      [categories[3]]: selections[i][3],
-    };
+  const userValues = spreadsheet
+    .getRange('users!A2:C')
+    .getValues()
+    .filter(row => row[0]);
+  const users: IUser[] = [];
+  for (const userValue of userValues) {
+    users.push({
+      email: userValue[0],
+      tags: userValue[1].split(',').map((tag: string) => tag.trim()),
+      count: userValue[2],
+    });
   }
-
-  return config;
+  return users;
 }
-
-function columnToLetter(column: number) {
-  let temp,
-    letter = '';
-  while (column > 0) {
-    temp = (column - 1) % 26;
-    letter = String.fromCharCode(temp + 65) + letter;
-    column = (column - temp - 1) / 26;
-  }
-  return letter;
-}
-
-const getDriveExportUrl = (emailTemplateId: string) =>
-  `https://docs.google.com/feeds/download/documents/export/Export?id=${emailTemplateId}&exportFormat=html`;
 const mediaItemsSearchUrl =
   'https://photoslibrary.googleapis.com/v1/mediaItems:search';
 const getPhotosParams = (
@@ -284,14 +256,3 @@ const getPhotosParams = (
     },
   };
 };
-const getDocsParams = (scriptOAuthToken: string) => {
-  return {
-    method: 'get',
-    headers: {
-      Authorization: `Bearer ${scriptOAuthToken}`,
-    },
-    muteHttpExceptions: true,
-  };
-};
-const getPhotoUrl = (photoId: string) =>
-  `https://photos.google.com/photo/${photoId}`;
