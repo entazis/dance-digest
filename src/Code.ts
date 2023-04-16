@@ -11,6 +11,11 @@ interface IUser {
   tags: string[];
   count: number;
 }
+interface IYoutubeLesson {
+  id: string;
+  //TODO custom tagging
+  // tags: string[];
+}
 // https://developers.google.com/photos/library/reference/rest/v1/mediaItems
 interface IMediaItem {
   id: string;
@@ -104,6 +109,8 @@ function getVideos(tags: string[], count: number): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const videos: IVideo[] = [
     ...getYoutubeUploads(tags),
+    //TODO debug lessons
+    // ...getYoutubeLessons(tags),
     ...tags.map(tag => getGooglePhotosVideos(tag)).flat(),
   ];
   for (let i = 0; i < count; i++) {
@@ -138,6 +145,27 @@ function getYoutubeUploads(tags: string[]): IVideo[] {
     Logger.log(`Error - getYoutubeUploads(): ${err.message}`);
     return [];
   }
+}
+
+function getYoutubeLessons(tags: string[]): IVideo[] {
+  const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
+  const lessonValues = spreadsheet
+    .getRange('lessons!A2:B')
+    .getValues()
+    .filter(row => row[0]);
+  const youtubeLessons: IYoutubeLesson[] = [];
+  for (const lessonValue of lessonValues) {
+    youtubeLessons.push({
+      id: lessonValue[0],
+      //TODO implement custom tagging
+      // tags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
+    });
+  }
+  const videos: IVideo[] = [];
+  for (const youtubeLesson of youtubeLessons) {
+    videos.push(getVideoDetails(youtubeLesson.id));
+  }
+  return videos.filter(video => tags.every(tag => video.tags.includes(tag)));
 }
 
 function getVideosOfPlaylist(playlistId: string): IVideo[] {
