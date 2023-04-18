@@ -165,20 +165,30 @@ function getVideosOfPlaylist(playlistId: string): IVideo[] {
 }
 
 function getVideoDetails(videoIds: string[]): IVideo[] {
-  const videoResponse: YouTube.Schema.VideoListResponse = YouTube.Videos.list(
-    'snippet',
-    {
-      id: videoIds.join(','),
-    }
-  );
-  return videoResponse.items.map(item => {
-    return {
-      id: item.id,
-      tags: item.snippet.tags,
-      title: item.snippet.title,
-      url: getYoutubeVideoUrl(item.id),
-    };
-  });
+  const videos: IVideo[] = [];
+  const responses: YouTube.Schema.VideoListResponse[] = [];
+  const chunkSize = 50;
+  for (let i = 0; i < videoIds.length; i += chunkSize) {
+    const vIds = videoIds.slice(i, i + chunkSize);
+    responses.push(
+      YouTube.Videos.list('snippet', {
+        id: vIds.join(','),
+      })
+    );
+  }
+  for (const response of responses) {
+    videos.push(
+      ...response.items.map(item => {
+        return {
+          id: item.id,
+          tags: item.snippet.tags,
+          title: item.snippet.title,
+          url: getYoutubeVideoUrl(item.id),
+        };
+      })
+    );
+  }
+  return videos;
 }
 
 function sendEmail(user: IUser, videos: IVideo[]): void {
