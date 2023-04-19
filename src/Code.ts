@@ -48,6 +48,7 @@ const emailTemplateName = 'template';
 const emailSubject = 'Daily Dance Digest';
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
 const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
+const usersRange = 'users!A2:C';
 const photosAlbumNameToIdMap: {[albumName: string]: string} = {
   bachata:
     'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
@@ -84,9 +85,8 @@ function sendDanceDigestEmail() {
 }
 
 function getUsers(): IUser[] {
-  const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
-  const userValues = spreadsheet
-    .getRange('users!A2:C')
+  const userValues = SpreadsheetApp.openById(configSpreadSheetId)
+    .getRange(usersRange)
     .getValues()
     .filter(row => row[0]);
   const users: IUser[] = [];
