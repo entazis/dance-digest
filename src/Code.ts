@@ -66,7 +66,7 @@ const photosAlbumNameToIdMap: {[albumName: string]: string} = {
 };
 
 const test = () => {
-  const results = getYoutubeUploads(['bachata']);
+  const results = getYoutubeLessons(['kizomba']);
   results.forEach(result => {
     Logger.log(JSON.stringify(result));
   });
@@ -109,8 +109,7 @@ function getVideos(tags: string[], count: number): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const videos: IVideo[] = [
     ...getYoutubeUploads(tags),
-    //TODO debug lessons
-    // ...getYoutubeLessons(tags),
+    ...getYoutubeLessons(tags),
     ...tags.map(tag => getGooglePhotosVideos(tag)).flat(),
   ];
   for (let i = 0; i < count; i++) {
@@ -161,11 +160,9 @@ function getYoutubeLessons(tags: string[]): IVideo[] {
       // tags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
     });
   }
-  const videos: IVideo[] = [];
-  for (const youtubeLesson of youtubeLessons) {
-    videos.push(getVideoDetails(youtubeLesson.id));
-  }
-  return videos.filter(video => tags.every(tag => video.tags.includes(tag)));
+  return getVideoDetails(youtubeLessons.map(lesson => lesson.id)).filter(
+    video => tags.every(tag => video.tags.includes(tag))
+  );
 }
 
 function getVideosOfPlaylist(playlistId: string): IVideo[] {
