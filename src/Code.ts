@@ -109,7 +109,7 @@ function getVideos(tags: string[], count: number): IVideo[] {
   const videos: IVideo[] = [
     ...getYoutubeUploads(tags),
     ...getYoutubeLessons(tags),
-    ...tags.map(tag => getGooglePhotosVideos(tag)).flat(),
+    ...(tags.length === 1 ? getGooglePhotosVideos(tags[0]) : []),
   ];
   for (let i = 0; i < count; i++) {
     //TODO implement more robust selection
