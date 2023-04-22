@@ -13,8 +13,7 @@ interface IUser {
 }
 interface IYoutubeLesson {
   id: string;
-  //TODO custom tagging
-  // tags: string[];
+  tags: string[];
 }
 // https://developers.google.com/photos/library/reference/rest/v1/mediaItems
 interface IMediaItem {
@@ -156,13 +155,18 @@ function getYoutubeLessons(tags: string[]): IVideo[] {
   for (const lessonValue of lessonValues) {
     youtubeLessons.push({
       id: lessonValue[0],
-      //TODO implement custom tagging
-      // tags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
+      tags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
     });
   }
-  return getVideoDetails(youtubeLessons.map(lesson => lesson.id)).filter(
-    video => tags.every(tag => video.tags.includes(tag))
+  const videos = getVideoDetails(youtubeLessons.map(lesson => lesson.id)).map(
+    video => {
+      video.tags = video.tags.concat(
+        youtubeLessons.find(lesson => lesson.id === video.id).tags
+      );
+      return video;
+    }
   );
+  return videos.filter(video => tags.every(tag => video.tags.includes(tag)));
 }
 
 function getVideosOfPlaylist(playlistId: string): IVideo[] {
