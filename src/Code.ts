@@ -53,6 +53,7 @@ const emailTemplateName = 'template';
 const emailSubject = 'Daily Dance Digest';
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
 const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
+const usersRange = 'users!A2:C';
 const photosAlbumNameToIdMap: {[albumName: string]: string} = {
   bachata:
     'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
@@ -89,9 +90,8 @@ function sendDanceDigestEmail() {
 }
 
 function getUsers(): IUser[] {
-  const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
-  const userValues = spreadsheet
-    .getRange('users!A2:C')
+  const userValues = SpreadsheetApp.openById(configSpreadSheetId)
+    .getRange(usersRange)
     .getValues()
     .filter(row => row[0]);
   const users: IUser[] = [];
@@ -189,39 +189,34 @@ function getVideosOfPlaylist(playlistId: string): IVideo[] {
     nextPageToken = playlistResponse.nextPageToken;
   } while (nextPageToken);
 
-  //TODO optimize to get all video details in one call
-  const videos: IVideo[] = [];
-  for (const videoId of videoIds) {
-    videos.push(getVideoDetails(videoId));
-  }
-
-  return videos;
+  return getVideoDetails(videoIds);
 }
 
-function getVideoDetails(videoId: string): IVideo {
-  const videoResponse: YouTube.Schema.VideoListResponse = YouTube.Videos.list(
-    'snippet',
-    {
-      id: videoId,
-    }
-  );
-  if (!videoResponse || videoResponse.items.length === 0) {
-    Logger.log(`no video found for ${videoId}`);
-    throw new Error(`no video found for id ${videoId}`);
-  } else {
-    if (videoResponse.items.length > 1) {
-      Logger.log(`more than one video found for id ${videoId}`);
-      throw new Error(`more than one video found for id ${videoId}`);
-    } else {
-      const item = videoResponse.items[0];
-      return {
-        id: item.id,
-        tags: item.snippet.tags,
-        title: item.snippet.title,
-        url: getYoutubeVideoUrl(videoId),
-      };
-    }
+function getVideoDetails(videoIds: string[]): IVideo[] {
+  const videos: IVideo[] = [];
+  const responses: YouTube.Schema.VideoListResponse[] = [];
+  const chunkSize = 50;
+  for (let i = 0; i < videoIds.length; i += chunkSize) {
+    const vIds = videoIds.slice(i, i + chunkSize);
+    responses.push(
+      YouTube.Videos.list('snippet', {
+        id: vIds.join(','),
+      })
+    );
   }
+  for (const response of responses) {
+    videos.push(
+      ...response.items.map(item => {
+        return {
+          id: item.id,
+          tags: item.snippet.tags,
+          title: item.snippet.title,
+          url: getYoutubeVideoUrl(item.id),
+        };
+      })
+    );
+  }
+  return videos;
 }
 
 function sendEmail(user: IUser, videos: IVideo[]): void {
