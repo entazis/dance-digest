@@ -96,13 +96,27 @@ function downloadYoutubeTags() {
 }
 
 function uploadYoutubeTags() {
+  const videos = getYoutubeUploads();
   const results = SpreadsheetApp.openById(configSpreadSheetId)
     .getRange('tags!A2:B')
     .getValues()
     .filter(row => row[0]);
-  Logger.log(JSON.stringify(results));
 
-  //TODO upload
+  for (const result of results) {
+    const videoId = result[0];
+    const tags = result[1].split(',').map((tag: string) => tag.trim());
+    const video = videos.find(video => video.id === videoId);
+    if (JSON.stringify(tags) !== JSON.stringify(video.tags)) {
+      Logger.log(
+        `updating tags of ${videoId} to ${JSON.stringify(
+          tags
+        )} (previous: ${JSON.stringify(video.tags)})`
+      );
+      const vid = YouTube.Videos.list('snippet', {id: videoId}).items[0];
+      vid.snippet.tags = tags;
+      YouTube.Videos.update(vid, 'snippet');
+    }
+  }
 }
 
 function getUsers(): IUser[] {
