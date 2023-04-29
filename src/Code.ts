@@ -281,7 +281,6 @@ function findCellWithId(id: string) {
   const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
   const sheet = spreadsheet.getSheetByName('tags');
   const values = sheet.getDataRange().getValues();
-  Logger.log(JSON.stringify(values));
 
   for (let i = 0; i < values.length; i++) {
     if (values[i][0] === id) {
