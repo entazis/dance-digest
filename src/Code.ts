@@ -52,6 +52,7 @@ const emailTemplateName = 'template';
 const emailSubject = 'Daily Dance Digest';
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
 const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
+const tagsSheetId = '1190338372';
 const usersRange = 'users!A2:C';
 const photosAlbumNameToIdMap: {[albumName: string]: string} = {
   bachata:
@@ -72,6 +73,16 @@ const test = () => {
 };
 
 const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
+const getSpreadSheetUrl = (
+  spreadsheetId: string,
+  sheetId: string,
+  range?: string
+) =>
+  `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheetId}${
+    range ? `&range=${range}` : ''
+  }`;
+const getConfigSpreadSheetRange = (range: string) =>
+  getSpreadSheetUrl(configSpreadSheetId, tagsSheetId, range);
 
 function sendDanceDigestEmail() {
   try {
@@ -264,6 +275,24 @@ function getEmailSubject(user: IUser): string {
 }
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
+}
+
+function findCellWithId(id: string) {
+  const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
+  const sheet = spreadsheet.getSheetByName('tags');
+  const values = sheet.getDataRange().getValues();
+  Logger.log(JSON.stringify(values));
+
+  for (let i = 0; i < values.length; i++) {
+    if (values[i][0] === id) {
+      const row = i + 1;
+      const column = 1;
+      const cell = sheet.getRange(row, column);
+      return cell.getA1Notation();
+    }
+  }
+
+  return null;
 }
 
 function getGooglePhotosVideos(albumName: string): IVideo[] {
