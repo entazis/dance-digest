@@ -5,6 +5,7 @@ interface IVideo {
   tags: string[];
   title: string;
   url: string;
+  pointer?: string;
 }
 interface IUser {
   email: string;
@@ -236,6 +237,7 @@ function getVideosOfPlaylist(playlistId: string): IVideo[] {
 }
 
 function getVideoDetails(videoIds: string[]): IVideo[] {
+  const idCellMap = createIdCellMap();
   const videos: IVideo[] = [];
   const responses: YouTube.Schema.VideoListResponse[] = [];
   const chunkSize = 50;
@@ -255,6 +257,9 @@ function getVideoDetails(videoIds: string[]): IVideo[] {
           tags: item.snippet.tags,
           title: item.snippet.title,
           url: getYoutubeVideoUrl(item.id),
+          pointer: idCellMap[item.id]
+            ? getConfigSpreadSheetRange(idCellMap[item.id])
+            : undefined,
         };
       })
     );
@@ -277,21 +282,20 @@ function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
 }
 
-function findCellWithId(id: string) {
+function createIdCellMap() {
   const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
   const sheet = spreadsheet.getSheetByName('tags');
   const values = sheet.getDataRange().getValues();
 
+  const idCellMap: {[videoId: string]: string} = {};
   for (let i = 0; i < values.length; i++) {
-    if (values[i][0] === id) {
-      const row = i + 1;
-      const column = 1;
-      const cell = sheet.getRange(row, column);
-      return cell.getA1Notation();
-    }
+    const row = i + 1;
+    const column = 1;
+    const id = sheet.getRange(row, column).getValue();
+    const cell = sheet.getRange(row, column);
+    idCellMap[id] = cell.getA1Notation();
   }
-
-  return null;
+  return idCellMap;
 }
 
 function getGooglePhotosVideos(albumName: string): IVideo[] {

@@ -12,6 +12,9 @@
           <? for (const tag of video.tags) { ?>
             <span><?= tag ?></span>
           <? } ?>
+          <? if (video.pointer) { ?>
+            <a href="<?= video.pointer ?>">sheet</a>
+          <? } ?>
         </li>
       <? } ?>
     </ul>
