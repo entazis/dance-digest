@@ -88,6 +88,23 @@ function sendDanceDigestEmail() {
   }
 }
 
+function downloadYoutubeTags() {
+  const videos = getYoutubeUploads();
+  SpreadsheetApp.openById(configSpreadSheetId)
+    .getRange(`tags!A2:B${videos.length + 1}`)
+    .setValues(videos.map(video => [video.id, video.tags.join(',')]));
+}
+
+function uploadYoutubeTags() {
+  const results = SpreadsheetApp.openById(configSpreadSheetId)
+    .getRange('tags!A2:B')
+    .getValues()
+    .filter(row => row[0]);
+  Logger.log(JSON.stringify(results));
+
+  //TODO upload
+}
+
 function getUsers(): IUser[] {
   const userValues = SpreadsheetApp.openById(configSpreadSheetId)
     .getRange(usersRange)
@@ -118,7 +135,7 @@ function getVideos(tags: string[], count: number): IVideo[] {
   return selectedVideos;
 }
 
-function getYoutubeUploads(tags: string[]): IVideo[] {
+function getYoutubeUploads(tags?: string[]): IVideo[] {
   try {
     const results = YouTube.Channels.list('contentDetails', {
       mine: true,
@@ -136,7 +153,7 @@ function getYoutubeUploads(tags: string[]): IVideo[] {
       }
       //TODO create more robust filtering (use expressions and set operations)
       return videos.filter(video =>
-        tags.every(tag => video.tags.includes(tag))
+        tags ? tags.every(tag => video.tags.includes(tag)) : true
       );
     }
   } catch (err: any) {
