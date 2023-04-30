@@ -229,7 +229,6 @@ function getVideosOfPlaylist(playlistId: string): IVideo[] {
 }
 
 function getYoutubeDetails(videoIds: string[]): IVideo[] {
-  const idCellMap = createIdCellMap(uploadsSheetId);
   const videos: IVideo[] = [];
   const responses: YouTube.Schema.VideoListResponse[] = [];
   const chunkSize = 50;
@@ -241,6 +240,8 @@ function getYoutubeDetails(videoIds: string[]): IVideo[] {
       })
     );
   }
+  const uploadsIdCellMap = createIdCellMap(uploadsSheetId);
+  const lessonsIdCellMap = createIdCellMap(lessonsSheetId);
   for (const response of responses) {
     videos.push(
       ...response.items.map(item => {
@@ -249,8 +250,10 @@ function getYoutubeDetails(videoIds: string[]): IVideo[] {
           tags: item.snippet.tags,
           title: item.snippet.title,
           url: getYoutubeVideoUrl(item.id),
-          pointer: idCellMap[item.id]
-            ? getSheetPointer(uploadsSheetId, idCellMap[item.id])
+          pointer: uploadsIdCellMap[item.id]
+            ? getSheetPointer(uploadsSheetId, uploadsIdCellMap[item.id])
+            : lessonsIdCellMap[item.id]
+            ? getSheetPointer(lessonsSheetId, lessonsIdCellMap[item.id])
             : undefined,
         };
       })
