@@ -25,9 +25,11 @@ const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
 const usersSheetId = '1345088339';
 const uploadsSheetId = '1190338372';
 const lessonsSheetId = '472806840';
-const usersSheetName = 'users';
-const uploadsSheetName = 'uploads';
-const lessonsSheetName = 'lessons';
+const sheetIdNameMap: {[sheetId: string]: string} = {
+  [usersSheetId]: 'users',
+  [uploadsSheetId]: 'uploads',
+  [lessonsSheetId]: 'lessons',
+};
 const photosAlbumNameToIdMap: {[albumName: string]: string} = {
   bachata:
     'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
@@ -64,7 +66,7 @@ function sendDanceDigestEmail() {
 function downloadYoutubeDetails() {
   const videos = getYoutubeUploads();
   SpreadsheetApp.openById(configSpreadSheetId)
-    .getRange(getUploadsSheetRange(videos.length))
+    .getRange(getSheetRange(uploadsSheetId, videos.length))
     .setValues(
       videos.map(video => [
         video.id,
@@ -78,7 +80,7 @@ function downloadYoutubeDetails() {
 function uploadYoutubeDetails() {
   const videos = getYoutubeUploads();
   const results = SpreadsheetApp.openById(configSpreadSheetId)
-    .getRange(getUploadsSheetRange())
+    .getRange(getSheetRange(uploadsSheetId))
     .getValues()
     .filter(row => row[0]);
 
@@ -107,7 +109,7 @@ function uploadYoutubeDetails() {
 
 function getUsers(): IUser[] {
   const userValues = SpreadsheetApp.openById(configSpreadSheetId)
-    .getRange(getUsersSheetRange())
+    .getRange(getSheetRange(usersSheetId))
     .getValues()
     .filter(row => row[0]);
   const users: IUser[] = [];
@@ -165,7 +167,7 @@ function getYoutubeUploads(tags?: string[]): IVideo[] {
 function getLessons(tags: string[]): IVideo[] {
   const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
   const lessonValues = spreadsheet
-    .getRange(getLessonsSheetRange())
+    .getRange(getSheetRange(lessonsSheetId))
     .getValues()
     .filter(row => row[0]);
   const lessons: ILesson[] = [];
@@ -189,12 +191,12 @@ function getLessons(tags: string[]): IVideo[] {
     lesson => !videos.find(video => video.id === lesson.id)
   );
   if (lessonsNotFoundOnYoutube.length > 0) {
-    const idCellMap = createIdCellMap(lessonsSheetName);
+    const idCellMap = createIdCellMap(lessonsSheetId);
     for (const lesson of lessonsNotFoundOnYoutube) {
       videos.push({
         ...lesson,
         pointer: idCellMap[lesson.id]
-          ? getLessonsSheetPointer(idCellMap[lesson.id])
+          ? getSheetPointer(lessonsSheetId, idCellMap[lesson.id])
           : undefined,
       });
     }
@@ -227,7 +229,7 @@ function getVideosOfPlaylist(playlistId: string): IVideo[] {
 }
 
 function getYoutubeDetails(videoIds: string[]): IVideo[] {
-  const idCellMap = createIdCellMap(uploadsSheetName);
+  const idCellMap = createIdCellMap(uploadsSheetId);
   const videos: IVideo[] = [];
   const responses: YouTube.Schema.VideoListResponse[] = [];
   const chunkSize = 50;
@@ -248,7 +250,7 @@ function getYoutubeDetails(videoIds: string[]): IVideo[] {
           title: item.snippet.title,
           url: getYoutubeVideoUrl(item.id),
           pointer: idCellMap[item.id]
-            ? getUploadsSheetPointer(idCellMap[item.id])
+            ? getSheetPointer(uploadsSheetId, idCellMap[item.id])
             : undefined,
         };
       })
@@ -274,9 +276,9 @@ function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
 }
 
-function createIdCellMap(sheetName: string) {
+function createIdCellMap(sheetId: string) {
   const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
-  const sheet = spreadsheet.getSheetByName(sheetName);
+  const sheet = spreadsheet.getSheetByName(sheetIdNameMap[sheetId]);
 
   const values = sheet.getDataRange().getValues();
   const idCellMap: {[videoId: string]: string} = {};
@@ -348,16 +350,10 @@ const getSpreadSheetUrl = (
   `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheetId}${
     range ? `&range=${range}` : ''
   }`;
-const getUploadsSheetPointer = (range: string) =>
-  getSpreadSheetUrl(configSpreadSheetId, uploadsSheetId, range);
-const getLessonsSheetPointer = (range: string) =>
-  getSpreadSheetUrl(configSpreadSheetId, lessonsSheetId, range);
-const getUploadsSheetRange = (count?: number) =>
-  `${uploadsSheetName}!A2:D${count ? count + 1 : ''}`;
-const getLessonsSheetRange = (count?: number) =>
-  `${lessonsSheetName}!A2:D${count ? count + 1 : ''}`;
-const getUsersSheetRange = (count?: number) =>
-  `${usersSheetName}!A2:C${count ? count + 1 : ''}`;
+const getSheetPointer = (sheetId: string, range: string) =>
+  getSpreadSheetUrl(configSpreadSheetId, sheetId, range);
+const getSheetRange = (sheetId: string, count?: number) =>
+  `${sheetIdNameMap[sheetId]}!A2:D${count ? count + 1 : ''}`;
 
 // https://developers.google.com/photos/library/reference/rest/v1/mediaItems
 interface IMediaItem {
