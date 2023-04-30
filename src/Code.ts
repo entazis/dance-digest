@@ -21,7 +21,7 @@ interface ILesson {
 
 const emailTemplateName = 'template';
 const emailSubject = 'Daily Dance Digest';
-const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
+const activeSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
 const usersSheetId = '1345088339';
 const uploadsSheetId = '1190338372';
 const lessonsSheetId = '472806840';
@@ -65,7 +65,7 @@ function sendDanceDigestEmail() {
 
 function downloadYoutubeDetails() {
   const videos = getYoutubeUploads();
-  SpreadsheetApp.openById(configSpreadSheetId)
+  SpreadsheetApp.getActiveSpreadsheet()
     .getRange(getSheetRange(uploadsSheetId, videos.length))
     .setValues(
       videos.map(video => [
@@ -79,7 +79,7 @@ function downloadYoutubeDetails() {
 
 function uploadYoutubeDetails() {
   const videos = getYoutubeUploads();
-  const results = SpreadsheetApp.openById(configSpreadSheetId)
+  const results = SpreadsheetApp.getActiveSpreadsheet()
     .getRange(getSheetRange(uploadsSheetId))
     .getValues()
     .filter(row => row[0]);
@@ -108,7 +108,7 @@ function uploadYoutubeDetails() {
 }
 
 function getUsers(): IUser[] {
-  const userValues = SpreadsheetApp.openById(configSpreadSheetId)
+  const userValues = SpreadsheetApp.getActiveSpreadsheet()
     .getRange(getSheetRange(usersSheetId))
     .getValues()
     .filter(row => row[0]);
@@ -165,7 +165,7 @@ function getYoutubeUploads(tags?: string[]): IVideo[] {
 }
 
 function getLessons(tags: string[]): IVideo[] {
-  const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const lessonValues = spreadsheet
     .getRange(getSheetRange(lessonsSheetId))
     .getValues()
@@ -196,7 +196,7 @@ function getLessons(tags: string[]): IVideo[] {
       videos.push({
         ...lesson,
         pointer: idCellMap[lesson.id]
-          ? getSheetPointer(lessonsSheetId, idCellMap[lesson.id])
+          ? getSpreadSheetUrl(lessonsSheetId, idCellMap[lesson.id])
           : undefined,
       });
     }
@@ -251,9 +251,9 @@ function getYoutubeDetails(videoIds: string[]): IVideo[] {
           title: item.snippet.title,
           url: getYoutubeVideoUrl(item.id),
           pointer: uploadsIdCellMap[item.id]
-            ? getSheetPointer(uploadsSheetId, uploadsIdCellMap[item.id])
+            ? getSpreadSheetUrl(uploadsSheetId, uploadsIdCellMap[item.id])
             : lessonsIdCellMap[item.id]
-            ? getSheetPointer(lessonsSheetId, lessonsIdCellMap[item.id])
+            ? getSpreadSheetUrl(lessonsSheetId, lessonsIdCellMap[item.id])
             : undefined,
         };
       })
@@ -280,7 +280,7 @@ function getRandomInt(max: number) {
 }
 
 function createIdCellMap(sheetId: string) {
-  const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = spreadsheet.getSheetByName(sheetIdNameMap[sheetId]);
 
   const values = sheet.getDataRange().getValues();
@@ -345,16 +345,10 @@ const getPhotosParams = (
 
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
 const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
-const getSpreadSheetUrl = (
-  spreadsheetId: string,
-  sheetId: string,
-  range?: string
-) =>
-  `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheetId}${
+const getSpreadSheetUrl = (sheetId: string, range?: string) =>
+  `https://docs.google.com/spreadsheets/d/${activeSpreadSheetId}/edit#gid=${sheetId}${
     range ? `&range=${range}` : ''
   }`;
-const getSheetPointer = (sheetId: string, range: string) =>
-  getSpreadSheetUrl(configSpreadSheetId, sheetId, range);
 const getSheetRange = (sheetId: string, count?: number) =>
   `${sheetIdNameMap[sheetId]}!A2:D${count ? count + 1 : ''}`;
 
