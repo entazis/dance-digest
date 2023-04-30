@@ -188,10 +188,16 @@ function getLessons(tags: string[]): IVideo[] {
   const lessonsNotFoundOnYoutube = lessons.filter(
     lesson => !videos.find(video => video.id === lesson.id)
   );
-  for (const lesson of lessonsNotFoundOnYoutube) {
-    videos.push({
-      ...lesson,
-    });
+  if (lessonsNotFoundOnYoutube.length > 0) {
+    const idCellMap = createIdCellMap(lessonsSheetName);
+    for (const lesson of lessonsNotFoundOnYoutube) {
+      videos.push({
+        ...lesson,
+        pointer: idCellMap[lesson.id]
+          ? getLessonsSheetPointer(idCellMap[lesson.id])
+          : undefined,
+      });
+    }
   }
   return videos.filter(video => tags.every(tag => video.tags.includes(tag)));
 }
