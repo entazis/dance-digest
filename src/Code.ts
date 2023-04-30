@@ -107,6 +107,17 @@ function uploadYoutubeDetails() {
   }
 }
 
+function addMenu() {
+  const menu = SpreadsheetApp.getUi().createMenu('Script');
+  menu.addItem('Download Youtube details', 'downloadYoutubeDetails');
+  menu.addItem('Upload Youtube details', 'uploadYoutubeDetails');
+  menu.addToUi();
+}
+
+function onOpen() {
+  addMenu();
+}
+
 function getUsers(): IUser[] {
   const userValues = SpreadsheetApp.getActiveSpreadsheet()
     .getRange(getSheetRange(usersSheetId))
