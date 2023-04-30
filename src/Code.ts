@@ -12,9 +12,11 @@ interface IUser {
   tags: string[];
   count: number;
 }
-interface IYoutubeLesson {
+interface ILesson {
   id: string;
   tags: string[];
+  url: string;
+  title: string;
 }
 // https://developers.google.com/photos/library/reference/rest/v1/mediaItems
 interface IMediaItem {
@@ -67,7 +69,7 @@ const photosAlbumNameToIdMap: {[albumName: string]: string} = {
 };
 
 const test = () => {
-  const results = getYoutubeLessons(['kizomba']);
+  const results = getLessons(['bachata']);
   results.forEach(result => {
     Logger.log(JSON.stringify(result));
   });
@@ -151,7 +153,7 @@ function getVideos(tags: string[], count: number): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const videos: IVideo[] = [
     ...getYoutubeUploads(tags),
-    ...getYoutubeLessons(tags),
+    ...getLessons(tags),
     ...(tags.length === 1 ? getGooglePhotosVideos(tags[0]) : []),
   ];
   for (let i = 0; i < count; i++) {
@@ -188,27 +190,37 @@ function getYoutubeUploads(tags?: string[]): IVideo[] {
   }
 }
 
-function getYoutubeLessons(tags: string[]): IVideo[] {
+function getLessons(tags: string[]): IVideo[] {
   const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
   const lessonValues = spreadsheet
-    .getRange('lessons!A2:B')
+    .getRange('lessons!A2:D')
     .getValues()
     .filter(row => row[0]);
-  const youtubeLessons: IYoutubeLesson[] = [];
+  const lessons: ILesson[] = [];
   for (const lessonValue of lessonValues) {
-    youtubeLessons.push({
+    lessons.push({
       id: lessonValue[0],
       tags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
+      url: lessonValue[2],
+      title: lessonValue[3],
     });
   }
-  const videos = getVideoDetails(youtubeLessons.map(lesson => lesson.id)).map(
+  const videos = getYoutubeDetails(lessons.map(lesson => lesson.id)).map(
     video => {
       video.tags = video.tags.concat(
-        youtubeLessons.find(lesson => lesson.id === video.id).tags
+        lessons.find(lesson => lesson.id === video.id).tags
       );
       return video;
     }
   );
+  const lessonsNotFoundOnYoutube = lessons.filter(
+    lesson => !videos.find(video => video.id === lesson.id)
+  );
+  for (const lesson of lessonsNotFoundOnYoutube) {
+    videos.push({
+      ...lesson,
+    });
+  }
   return videos.filter(video => tags.every(tag => video.tags.includes(tag)));
 }
 
@@ -233,10 +245,10 @@ function getVideosOfPlaylist(playlistId: string): IVideo[] {
     nextPageToken = playlistResponse.nextPageToken;
   } while (nextPageToken);
 
-  return getVideoDetails(videoIds);
+  return getYoutubeDetails(videoIds);
 }
 
-function getVideoDetails(videoIds: string[]): IVideo[] {
+function getYoutubeDetails(videoIds: string[]): IVideo[] {
   const idCellMap = createIdCellMap();
   const videos: IVideo[] = [];
   const responses: YouTube.Schema.VideoListResponse[] = [];
