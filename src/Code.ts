@@ -18,45 +18,16 @@ interface ILesson {
   url: string;
   title: string;
 }
-// https://developers.google.com/photos/library/reference/rest/v1/mediaItems
-interface IMediaItem {
-  id: string;
-  description: string;
-  productUrl: string;
-  baseUrl: string;
-  mimeType: string;
-  mediaMetadata: {
-    creationTime: string;
-    width: string;
-    height: string;
-    photo: {
-      cameraMake: string;
-      cameraModel: string;
-      focalLength: number;
-      apertureFNumber: number;
-      isoEquivalent: number;
-      exposureTime: string;
-    };
-    video: {
-      cameraMake: string;
-      cameraModel: string;
-      fps: number;
-      status: 'UNSPECIFIED' | 'PROCESSING' | 'READY' | 'FAILED';
-    };
-  };
-  contributorInfo: {
-    profilePictureBaseUrl: string;
-    displayName: string;
-  };
-  filename: string;
-}
 
 const emailTemplateName = 'template';
 const emailSubject = 'Daily Dance Digest';
-const youtubeUrl = 'https://www.youtube.com/watch?v=';
 const configSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
-const tagsSheetId = '1190338372';
-const usersRange = 'users!A2:C';
+const usersSheetId = '1345088339';
+const uploadsSheetId = '1190338372';
+const lessonsSheetId = '472806840';
+const usersSheetName = 'users';
+const uploadsSheetName = 'uploads';
+const lessonsSheetName = 'lessons';
 const photosAlbumNameToIdMap: {[albumName: string]: string} = {
   bachata:
     'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
@@ -75,18 +46,6 @@ const test = () => {
   });
 };
 
-const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
-const getSpreadSheetUrl = (
-  spreadsheetId: string,
-  sheetId: string,
-  range?: string
-) =>
-  `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheetId}${
-    range ? `&range=${range}` : ''
-  }`;
-const getConfigSpreadSheetRange = (range: string) =>
-  getSpreadSheetUrl(configSpreadSheetId, tagsSheetId, range);
-
 function sendDanceDigestEmail() {
   try {
     const users = getUsers();
@@ -102,32 +61,45 @@ function sendDanceDigestEmail() {
   }
 }
 
-function downloadYoutubeTags() {
+function downloadYoutubeDetails() {
   const videos = getYoutubeUploads();
   SpreadsheetApp.openById(configSpreadSheetId)
-    .getRange(`tags!A2:B${videos.length + 1}`)
-    .setValues(videos.map(video => [video.id, video.tags.join(',')]));
+    .getRange(getUploadsSheetRange(videos.length))
+    .setValues(
+      videos.map(video => [
+        video.id,
+        video.tags.join(','),
+        video.url,
+        video.title,
+      ])
+    );
 }
 
-function uploadYoutubeTags() {
+function uploadYoutubeDetails() {
   const videos = getYoutubeUploads();
   const results = SpreadsheetApp.openById(configSpreadSheetId)
-    .getRange('tags!A2:B')
+    .getRange(getUploadsSheetRange())
     .getValues()
     .filter(row => row[0]);
 
   for (const result of results) {
     const videoId = result[0];
     const tags = result[1].split(',').map((tag: string) => tag.trim());
+    const url = result[2];
+    const title = result[3];
     const video = videos.find(video => video.id === videoId);
-    if (JSON.stringify(tags) !== JSON.stringify(video.tags)) {
+    if (
+      JSON.stringify(tags) !== JSON.stringify(video.tags) ||
+      JSON.stringify(title) !== JSON.stringify(video.title)
+    ) {
       Logger.log(
-        `updating tags of ${videoId} to ${JSON.stringify(
+        `updating ${videoId} title: "${title}", tags: ${JSON.stringify(
           tags
-        )} (previous: ${JSON.stringify(video.tags)})`
+        )} from title: "${video.title}", tags: ${JSON.stringify(video.tags)})`
       );
       const vid = YouTube.Videos.list('snippet', {id: videoId}).items[0];
       vid.snippet.tags = tags;
+      vid.snippet.title = title;
       YouTube.Videos.update(vid, 'snippet');
     }
   }
@@ -135,7 +107,7 @@ function uploadYoutubeTags() {
 
 function getUsers(): IUser[] {
   const userValues = SpreadsheetApp.openById(configSpreadSheetId)
-    .getRange(usersRange)
+    .getRange(getUsersSheetRange())
     .getValues()
     .filter(row => row[0]);
   const users: IUser[] = [];
@@ -193,7 +165,7 @@ function getYoutubeUploads(tags?: string[]): IVideo[] {
 function getLessons(tags: string[]): IVideo[] {
   const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
   const lessonValues = spreadsheet
-    .getRange('lessons!A2:D')
+    .getRange(getLessonsSheetRange())
     .getValues()
     .filter(row => row[0]);
   const lessons: ILesson[] = [];
@@ -249,7 +221,7 @@ function getVideosOfPlaylist(playlistId: string): IVideo[] {
 }
 
 function getYoutubeDetails(videoIds: string[]): IVideo[] {
-  const idCellMap = createIdCellMap();
+  const idCellMap = createIdCellMap(uploadsSheetName);
   const videos: IVideo[] = [];
   const responses: YouTube.Schema.VideoListResponse[] = [];
   const chunkSize = 50;
@@ -270,7 +242,7 @@ function getYoutubeDetails(videoIds: string[]): IVideo[] {
           title: item.snippet.title,
           url: getYoutubeVideoUrl(item.id),
           pointer: idCellMap[item.id]
-            ? getConfigSpreadSheetRange(idCellMap[item.id])
+            ? getUploadsSheetPointer(idCellMap[item.id])
             : undefined,
         };
       })
@@ -280,11 +252,13 @@ function getYoutubeDetails(videoIds: string[]): IVideo[] {
 }
 
 function sendEmail(user: IUser, videos: IVideo[]): void {
-  const template = HtmlService.createTemplateFromFile(emailTemplateName);
-  template.videos = videos;
-  GmailApp.sendEmail(user.email, getEmailSubject(user), '', {
-    htmlBody: template.evaluate().getContent(),
-  });
+  if (videos.length > 0) {
+    const template = HtmlService.createTemplateFromFile(emailTemplateName);
+    template.videos = videos;
+    GmailApp.sendEmail(user.email, getEmailSubject(user), '', {
+      htmlBody: template.evaluate().getContent(),
+    });
+  }
 }
 
 function getEmailSubject(user: IUser): string {
@@ -294,11 +268,11 @@ function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
 }
 
-function createIdCellMap() {
+function createIdCellMap(sheetName: string) {
   const spreadsheet = SpreadsheetApp.openById(configSpreadSheetId);
-  const sheet = spreadsheet.getSheetByName('tags');
-  const values = sheet.getDataRange().getValues();
+  const sheet = spreadsheet.getSheetByName(sheetName);
 
+  const values = sheet.getDataRange().getValues();
   const idCellMap: {[videoId: string]: string} = {};
   for (let i = 0; i < values.length; i++) {
     const row = i + 1;
@@ -357,3 +331,57 @@ const getPhotosParams = (
     },
   };
 };
+
+const youtubeUrl = 'https://www.youtube.com/watch?v=';
+const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
+const getSpreadSheetUrl = (
+  spreadsheetId: string,
+  sheetId: string,
+  range?: string
+) =>
+  `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheetId}${
+    range ? `&range=${range}` : ''
+  }`;
+const getUploadsSheetPointer = (range: string) =>
+  getSpreadSheetUrl(configSpreadSheetId, uploadsSheetId, range);
+const getLessonsSheetPointer = (range: string) =>
+  getSpreadSheetUrl(configSpreadSheetId, lessonsSheetId, range);
+const getUploadsSheetRange = (count?: number) =>
+  `${uploadsSheetName}!A2:D${count ? count + 1 : ''}`;
+const getLessonsSheetRange = (count?: number) =>
+  `${lessonsSheetName}!A2:D${count ? count + 1 : ''}`;
+const getUsersSheetRange = (count?: number) =>
+  `${usersSheetName}!A2:C${count ? count + 1 : ''}`;
+
+// https://developers.google.com/photos/library/reference/rest/v1/mediaItems
+interface IMediaItem {
+  id: string;
+  description: string;
+  productUrl: string;
+  baseUrl: string;
+  mimeType: string;
+  mediaMetadata: {
+    creationTime: string;
+    width: string;
+    height: string;
+    photo: {
+      cameraMake: string;
+      cameraModel: string;
+      focalLength: number;
+      apertureFNumber: number;
+      isoEquivalent: number;
+      exposureTime: string;
+    };
+    video: {
+      cameraMake: string;
+      cameraModel: string;
+      fps: number;
+      status: 'UNSPECIFIED' | 'PROCESSING' | 'READY' | 'FAILED';
+    };
+  };
+  contributorInfo: {
+    profilePictureBaseUrl: string;
+    displayName: string;
+  };
+  filename: string;
+}
