@@ -202,6 +202,49 @@ function getLessons(tags: string[] = []): IVideo[] {
   return filterVideosByTags(videos, tags);
 }
 
+function getGooglePhotosVideos(tags: string[] = []): IVideo[] {
+  let mediaItems: IMediaItem[] = [];
+  let pageToken = '';
+  do {
+    const mediaItemsSearchUrl =
+      'https://photoslibrary.googleapis.com/v1/mediaItems:search';
+    const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+      method: 'post',
+      headers: {
+        Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
+      },
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        pageSize: 100,
+        pageToken,
+        filters: {
+          mediaTypeFilter: {
+            mediaTypes: ['VIDEO'],
+          },
+        },
+      }),
+    };
+    const response = UrlFetchApp.fetch(mediaItemsSearchUrl, params);
+    const result = JSON.parse(response.getContentText());
+    mediaItems = mediaItems.concat(result.mediaItems);
+    pageToken = result.nextPageToken;
+  } while (pageToken);
+
+  return filterVideosByTags(
+    mediaItems.map(item => {
+      return {
+        id: item.id,
+        tags: item.description
+          ? item.description.split(',').map(tag => tag.trim())
+          : [],
+        title: item.filename,
+        url: item.productUrl,
+      };
+    }),
+    tags
+  );
+}
+
 function filterVideosByTags(videos: IVideo[], tags: string[]) {
   //TODO split by + -> filter (any) -> map expressions include all with * exclude all with /
   // bachata*bch/footwork/ladystyle+bachata*royaldance/footwork/ladystyle
@@ -299,49 +342,6 @@ function createIdCellMap(sheetId: string) {
     idCellMap[id] = cell.getA1Notation();
   }
   return idCellMap;
-}
-
-function getGooglePhotosVideos(tags: string[] = []): IVideo[] {
-  let mediaItems: IMediaItem[] = [];
-  let pageToken = '';
-  do {
-    const mediaItemsSearchUrl =
-      'https://photoslibrary.googleapis.com/v1/mediaItems:search';
-    const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
-      method: 'post',
-      headers: {
-        Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
-      },
-      contentType: 'application/json',
-      payload: JSON.stringify({
-        pageSize: 100,
-        pageToken,
-        filters: {
-          mediaTypeFilter: {
-            mediaTypes: ['VIDEO'],
-          },
-        },
-      }),
-    };
-    const response = UrlFetchApp.fetch(mediaItemsSearchUrl, params);
-    const result = JSON.parse(response.getContentText());
-    mediaItems = mediaItems.concat(result.mediaItems);
-    pageToken = result.nextPageToken;
-  } while (pageToken);
-
-  return filterVideosByTags(
-    mediaItems.map(item => {
-      return {
-        id: item.id,
-        tags: item.description
-          ? item.description.split(',').map(tag => tag.trim())
-          : [],
-        title: item.filename,
-        url: item.productUrl,
-      };
-    }),
-    tags
-  );
 }
 
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
