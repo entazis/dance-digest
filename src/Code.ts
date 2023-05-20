@@ -30,19 +30,9 @@ const sheetIdNameMap: {[sheetId: string]: string} = {
   [uploadsSheetId]: 'uploads',
   [lessonsSheetId]: 'lessons',
 };
-const photosAlbumNameToIdMap: {[albumName: string]: string} = {
-  bachata:
-    'AB0dA_1B4FrJJ5axjP2gIbiT7U_o71YH9uIL0H_6FSzEj5VLb5Pwnl007jFpKI7g9vyfVY7K0k5G',
-  kizomba:
-    'AB0dA_243Vlkg8GXGdVJYxWurWdx8wJhbRiy71DEAmf0ZfDMrDvT6RrxYvWrdLKo6bPZzr8K9Po0',
-  salsa:
-    'AB0dA_0FkOSUdjFy2OrLR80mMGAGA2qEV257dlTELzYJX7pt2FLMSmxbXcBNu4oFqO5PHiQ8AOUx',
-  reggaeton:
-    'AB0dA_0Fh2-aYxcvsIuGQUWrIKsFNwOkAJWLTLZvf6ptQxeBaFvdc5fW3IGZVU-82yhAbuIrCj-B',
-};
 
 const test = () => {
-  const results = getLessons(['bachata']);
+  const results = getGooglePhotosVideos();
   results.forEach(result => {
     Logger.log(JSON.stringify(result));
   });
@@ -139,7 +129,7 @@ function getVideos(tags: string[], count: number): IVideo[] {
   const videos: IVideo[] = [
     ...getYoutubeUploads(tags),
     ...getLessons(tags),
-    ...(tags.length === 1 ? getGooglePhotosVideos(tags[0]) : []),
+    ...getGooglePhotosVideos(tags),
   ];
   for (let i = 0; i < count; i++) {
     //TODO implement more robust selection
@@ -306,53 +296,49 @@ function createIdCellMap(sheetId: string) {
   return idCellMap;
 }
 
-function getGooglePhotosVideos(albumName: string): IVideo[] {
-  if (!photosAlbumNameToIdMap[albumName]) {
-    return [];
-  }
-  const photosParams = getPhotosParams(
-    ScriptApp.getOAuthToken(),
-    photosAlbumNameToIdMap[albumName]
-  );
-  let response: {mediaItems: IMediaItem[]; nextPageToken?: string} = JSON.parse(
-    UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText()
-  );
-  let danceVideos: IVideo[] = response.mediaItems.map(item => {
-    return {id: null, tags: [], title: item.filename, url: item.productUrl};
-  });
-  while (response.nextPageToken) {
-    if (photosParams.payload) {
-      (photosParams.payload as {[key: string]: any}).pageToken =
-        response.nextPageToken;
-    }
-    response = JSON.parse(
-      UrlFetchApp.fetch(`${mediaItemsSearchUrl}`, photosParams).getContentText()
+function getGooglePhotosVideos(tags?: string[]): IVideo[] {
+  let mediaItems: IMediaItem[] = [];
+  let pageToken = '';
+  do {
+    const mediaItemsSearchUrl =
+      'https://photoslibrary.googleapis.com/v1/mediaItems:search';
+    const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+      method: 'post',
+      headers: {
+        Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
+      },
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        pageSize: 100,
+        pageToken,
+        filters: {
+          mediaTypeFilter: {
+            mediaTypes: ['VIDEO'],
+          },
+        },
+      }),
+    };
+    const response = UrlFetchApp.fetch(mediaItemsSearchUrl, params);
+    const result = JSON.parse(response.getContentText());
+    mediaItems = mediaItems.concat(result.mediaItems);
+    pageToken = result.nextPageToken;
+  } while (pageToken);
+
+  return mediaItems
+    .map(item => {
+      return {
+        id: item.id,
+        tags: item.description
+          ? item.description.split(',').map(tag => tag.trim())
+          : [],
+        title: item.filename,
+        url: item.productUrl,
+      };
+    })
+    .filter((video: IVideo) =>
+      tags ? tags.every(tag => video.tags.includes(tag)) : true
     );
-    danceVideos = danceVideos.concat(
-      response.mediaItems.map(item => {
-        return {id: null, tags: [], title: item.filename, url: item.productUrl};
-      })
-    );
-  }
-  return danceVideos;
 }
-const mediaItemsSearchUrl =
-  'https://photoslibrary.googleapis.com/v1/mediaItems:search';
-const getPhotosParams = (
-  scriptOAuthToken: string,
-  albumId: string
-): GoogleAppsScript.URL_Fetch.URLFetchRequestOptions => {
-  return {
-    headers: {
-      Authorization: `Bearer ${scriptOAuthToken}`,
-    },
-    method: 'post',
-    payload: {
-      pageSize: '100',
-      albumId: albumId,
-    },
-  };
-};
 
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
 const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
