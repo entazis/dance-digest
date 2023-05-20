@@ -138,7 +138,7 @@ function getVideos(tags: string[], count: number): IVideo[] {
   return selectedVideos;
 }
 
-function getYoutubeUploads(tags?: string[]): IVideo[] {
+function getYoutubeUploads(tags: string[] = []): IVideo[] {
   try {
     const results = YouTube.Channels.list('contentDetails', {
       mine: true,
@@ -154,10 +154,7 @@ function getYoutubeUploads(tags?: string[]): IVideo[] {
         );
         videos.push(...uploadVideos);
       }
-      //TODO create more robust filtering (use expressions and set operations)
-      return videos.filter(video =>
-        tags ? tags.every(tag => video.tags.includes(tag)) : true
-      );
+      return filterVideosByTags(videos, tags);
     }
   } catch (err: any) {
     Logger.log(`Error - getYoutubeUploads(): ${err.message}`);
@@ -165,7 +162,7 @@ function getYoutubeUploads(tags?: string[]): IVideo[] {
   }
 }
 
-function getLessons(tags: string[]): IVideo[] {
+function getLessons(tags: string[] = []): IVideo[] {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const lessonValues = spreadsheet
     .getRange(getSheetRange(lessonsSheetId))
@@ -202,7 +199,15 @@ function getLessons(tags: string[]): IVideo[] {
       });
     }
   }
-  return videos.filter(video => tags.every(tag => video.tags.includes(tag)));
+  return filterVideosByTags(videos, tags);
+}
+
+function filterVideosByTags(videos: IVideo[], tags: string[]) {
+  //TODO split by + -> filter (any) -> map expressions include all with * exclude all with /
+  // bachata*bch/footwork/ladystyle+bachata*royaldance/footwork/ladystyle
+  return videos.filter(video =>
+    tags ? tags.every(tag => video.tags.includes(tag)) : true
+  );
 }
 
 function getVideosOfPlaylist(playlistId: string): IVideo[] {
@@ -296,7 +301,7 @@ function createIdCellMap(sheetId: string) {
   return idCellMap;
 }
 
-function getGooglePhotosVideos(tags?: string[]): IVideo[] {
+function getGooglePhotosVideos(tags: string[] = []): IVideo[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
   do {
@@ -324,8 +329,8 @@ function getGooglePhotosVideos(tags?: string[]): IVideo[] {
     pageToken = result.nextPageToken;
   } while (pageToken);
 
-  return mediaItems
-    .map(item => {
+  return filterVideosByTags(
+    mediaItems.map(item => {
       return {
         id: item.id,
         tags: item.description
@@ -334,10 +339,9 @@ function getGooglePhotosVideos(tags?: string[]): IVideo[] {
         title: item.filename,
         url: item.productUrl,
       };
-    })
-    .filter((video: IVideo) =>
-      tags ? tags.every(tag => video.tags.includes(tag)) : true
-    );
+    }),
+    tags
+  );
 }
 
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
