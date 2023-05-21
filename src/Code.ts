@@ -9,7 +9,7 @@ interface IVideo {
 }
 interface IUser {
   email: string;
-  tags: string[];
+  tagExpression: string;
   count: number;
 }
 interface ILesson {
@@ -32,7 +32,7 @@ const sheetIdNameMap: {[sheetId: string]: string} = {
 };
 
 const test = () => {
-  const results = getGooglePhotosVideos();
+  const results = getVideos('kizomba/beginner/Niki*Viktor/dance+Balázs', 10);
   results.forEach(result => {
     Logger.log(JSON.stringify(result));
   });
@@ -44,7 +44,7 @@ function sendDanceDigestEmail() {
     Logger.log(JSON.stringify(users));
 
     for (const user of users) {
-      sendEmail(user, getVideos(user.tags, user.count));
+      sendEmail(user, getVideos(user.tagExpression, user.count));
     }
   } catch (err: any) {
     Logger.log(
@@ -117,19 +117,19 @@ function getUsers(): IUser[] {
   for (const userValue of userValues) {
     users.push({
       email: userValue[0],
-      tags: userValue[1].split(',').map((tag: string) => tag.trim()),
+      tagExpression: userValue[1],
       count: userValue[2],
     });
   }
   return users;
 }
 
-function getVideos(tags: string[], count: number): IVideo[] {
+function getVideos(tagExpression: string, count: number): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const videos: IVideo[] = [
-    ...getYoutubeUploads(tags),
-    ...getLessons(tags),
-    ...getGooglePhotosVideos(tags),
+    ...getYoutubeUploads(tagExpression),
+    ...getLessons(tagExpression),
+    ...getGooglePhotosVideos(tagExpression),
   ];
   for (let i = 0; i < count; i++) {
     //TODO implement more robust selection
@@ -138,7 +138,7 @@ function getVideos(tags: string[], count: number): IVideo[] {
   return selectedVideos;
 }
 
-function getYoutubeUploads(tags: string[] = []): IVideo[] {
+function getYoutubeUploads(tagExpression?: string): IVideo[] {
   try {
     const results = YouTube.Channels.list('contentDetails', {
       mine: true,
@@ -154,7 +154,9 @@ function getYoutubeUploads(tags: string[] = []): IVideo[] {
         );
         videos.push(...uploadVideos);
       }
-      return filterVideosByTags(videos, tags);
+      return tagExpression
+        ? filterVideosByTagExpression(videos, tagExpression)
+        : videos;
     }
   } catch (err: any) {
     Logger.log(`Error - getYoutubeUploads(): ${err.message}`);
@@ -162,7 +164,7 @@ function getYoutubeUploads(tags: string[] = []): IVideo[] {
   }
 }
 
-function getLessons(tags: string[] = []): IVideo[] {
+function getLessons(tagExpression?: string): IVideo[] {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const lessonValues = spreadsheet
     .getRange(getSheetRange(lessonsSheetId))
@@ -199,10 +201,12 @@ function getLessons(tags: string[] = []): IVideo[] {
       });
     }
   }
-  return filterVideosByTags(videos, tags);
+  return tagExpression
+    ? filterVideosByTagExpression(videos, tagExpression)
+    : videos;
 }
 
-function getGooglePhotosVideos(tags: string[] = []): IVideo[] {
+function getGooglePhotosVideos(tagExpression?: string): IVideo[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
   do {
@@ -230,26 +234,43 @@ function getGooglePhotosVideos(tags: string[] = []): IVideo[] {
     pageToken = result.nextPageToken;
   } while (pageToken);
 
-  return filterVideosByTags(
-    mediaItems.map(item => {
-      return {
-        id: item.id,
-        tags: item.description
-          ? item.description.split(',').map(tag => tag.trim())
-          : [],
-        title: item.filename,
-        url: item.productUrl,
-      };
-    }),
-    tags
-  );
+  const videos: IVideo[] = mediaItems.map(item => {
+    return {
+      id: item.id,
+      tags: item.description
+        ? item.description.split(',').map(tag => tag.trim())
+        : [],
+      title: item.filename,
+      url: item.productUrl,
+    };
+  });
+
+  return tagExpression
+    ? filterVideosByTagExpression(videos, tagExpression)
+    : videos;
 }
 
-function filterVideosByTags(videos: IVideo[], tags: string[]) {
-  //TODO split by + -> filter (any) -> map expressions include all with * exclude all with /
-  // bachata*bch/footwork/ladystyle+bachata*royaldance/footwork/ladystyle
+function filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
+  const terms = tagExpression.split('+');
   return videos.filter(video =>
-    tags ? tags.every(tag => video.tags.includes(tag)) : true
+    terms.some(term => {
+      const tags = term.split(/[*/]/g);
+      const matches = term.match(/[*/]/g) ? term.match(/[*/]/g) : [];
+      const operations =
+        matches.length < tags.length ? ['*'].concat(matches) : matches;
+      if (operations.length !== tags.length) {
+        throw new Error('invalid tag expression');
+      }
+      return tags.every((tag, index) => {
+        if (operations[index] === '*') {
+          return video.tags.includes(tag);
+        } else if (operations[index] === '/') {
+          return !video.tags.includes(tag);
+        } else {
+          return video.tags.includes(tag);
+        }
+      });
+    })
   );
 }
 
@@ -322,7 +343,7 @@ function sendEmail(user: IUser, videos: IVideo[]): void {
 }
 
 function getEmailSubject(user: IUser): string {
-  return `${emailSubject}: ${user.tags.join(', ')}`;
+  return `${emailSubject}: ${user.tagExpression}`;
 }
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
