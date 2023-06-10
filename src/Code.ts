@@ -28,12 +28,14 @@ const emailTemplateName = 'template';
 const emailSubject = 'Daily Dance Digest';
 const activeSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
 const usersSheetId = '1345088339';
-const uploadsSheetId = '1190338372';
+const youtubeUploadsSheetId = '1190338372';
 const lessonsSheetId = '472806840';
+const googlePhotosSheetId = '1878936212';
 const sheetIdNameMap: {[sheetId: string]: string} = {
   [usersSheetId]: 'users',
-  [uploadsSheetId]: 'uploads',
+  [youtubeUploadsSheetId]: 'youtubeUploads',
   [lessonsSheetId]: 'lessons',
+  [googlePhotosSheetId]: 'googlePhotos',
 };
 
 const test = () => {
@@ -59,10 +61,11 @@ function sendDanceDigestEmail() {
   }
 }
 
+//TODO refactor, download(service)
 function downloadYoutubeDetails() {
   const videos = _getYoutubeUploads();
   SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(uploadsSheetId, videos.length))
+    .getRange(_getSheetRange(youtubeUploadsSheetId, videos.length))
     .setValues(
       videos.map(video => [
         video.id,
@@ -73,10 +76,11 @@ function downloadYoutubeDetails() {
     );
 }
 
+//TODO refactor, upload(service)
 function uploadYoutubeDetails() {
   const videos = _getYoutubeUploads();
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(uploadsSheetId))
+    .getRange(_getSheetRange(youtubeUploadsSheetId))
     .getValues()
     .filter(row => row[0]);
 
@@ -103,15 +107,71 @@ function uploadYoutubeDetails() {
   }
 }
 
+function downloadGooglePhotosDetails() {
+  const videos = _getGooglePhotosVideos();
+  SpreadsheetApp.getActiveSpreadsheet()
+    .getRange(_getSheetRange(googlePhotosSheetId, videos.length))
+    .setValues(
+      videos.map(video => [
+        video.id,
+        video.tags.join(','),
+        video.url,
+        video.title,
+      ])
+    );
+}
+
+function uploadGooglePhotosDetails() {
+  const videos = _getGooglePhotosVideos();
+  const results = SpreadsheetApp.getActiveSpreadsheet()
+    .getRange(_getSheetRange(googlePhotosSheetId))
+    .getValues()
+    .filter(row => row[0]);
+
+  for (const result of results) {
+    const videoId = result[0];
+    const tags: string[] = result[1]
+      ? result[1].split(',').map((tag: string) => tag.trim())
+      : [];
+    const url = result[2];
+    const title = result[3];
+    const video = videos.find(video => video.id === videoId);
+    if (
+      JSON.stringify(tags) !== JSON.stringify(video.tags) ||
+      JSON.stringify(title) !== JSON.stringify(video.title)
+    ) {
+      Logger.log(
+        `updating ${videoId} title: "${title}", tags: ${JSON.stringify(
+          tags
+        )} from title: "${video.title}", tags: ${JSON.stringify(video.tags)})`
+      );
+
+      //TODO FIXME "invalid media item ID"
+      // const mediaItemsUpdateUrl = `https://photoslibrary.googleapis.com/v1/mediaItems/${videoId}?updateMask=description`;
+      // const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+      //   method: 'patch',
+      //   headers: {
+      //     Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
+      //   },
+      //   contentType: 'application/json',
+      //   payload: JSON.stringify({
+      //     description: tags.join(','),
+      //   }),
+      // };
+      // const response = UrlFetchApp.fetch(mediaItemsUpdateUrl, params);
+    }
+  }
+}
+
+function onOpen() {
+  addMenu();
+}
+
 function addMenu() {
   const menu = SpreadsheetApp.getUi().createMenu('Script');
   menu.addItem('Download Youtube details', 'downloadYoutubeDetails');
   menu.addItem('Upload Youtube details', 'uploadYoutubeDetails');
   menu.addToUi();
-}
-
-function onOpen() {
-  addMenu();
 }
 
 function _getSections(user: IUser) {
@@ -335,7 +395,7 @@ function _getYoutubeDetails(videoIds: string[]): IVideo[] {
       })
     );
   }
-  const uploadsIdCellMap = _createIdCellMap(uploadsSheetId);
+  const uploadsIdCellMap = _createIdCellMap(youtubeUploadsSheetId);
   const lessonsIdCellMap = _createIdCellMap(lessonsSheetId);
   for (const response of responses) {
     videos.push(
@@ -346,7 +406,10 @@ function _getYoutubeDetails(videoIds: string[]): IVideo[] {
           title: item.snippet.title,
           url: _getYoutubeVideoUrl(item.id),
           pointer: uploadsIdCellMap[item.id]
-            ? _getSpreadSheetUrl(uploadsSheetId, uploadsIdCellMap[item.id])
+            ? _getSpreadSheetUrl(
+                youtubeUploadsSheetId,
+                uploadsIdCellMap[item.id]
+              )
             : lessonsIdCellMap[item.id]
             ? _getSpreadSheetUrl(lessonsSheetId, lessonsIdCellMap[item.id])
             : undefined,
