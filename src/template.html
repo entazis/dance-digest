@@ -12,8 +12,10 @@
         <? for (const video of section.videos) { ?>
           <li>
             <a href="<?= video.url ?>"><?= video.title ?></a>:
-            <? for (const tag of video.tags) { ?>
-              <span><?= tag ?></span>
+            <? if (video.customTags) { ?>
+              <span><?= video.customTags.join(", ") ?></span>
+            <? } else { ?>
+              <span><?= video.tags.join(", ") ?></span>
             <? } ?>
             <? if (video.pointer) { ?>
               <a href="<?= video.pointer ?>">sheet</a>

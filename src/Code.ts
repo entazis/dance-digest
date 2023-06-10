@@ -10,6 +10,7 @@ interface IVideo {
   title: string;
   url: string;
   pointer?: string;
+  customTags?: string[];
 }
 interface IUser {
   email: string;
@@ -18,7 +19,7 @@ interface IUser {
 }
 interface ILesson {
   id: string;
-  tags: string[];
+  customTags: string[];
   url: string;
   title: string;
 }
@@ -191,16 +192,16 @@ function _getLessons(tagExpression?: string): IVideo[] {
   for (const lessonValue of lessonValues) {
     lessons.push({
       id: lessonValue[0],
-      tags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
+      customTags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
       url: lessonValue[2],
       title: lessonValue[3],
     });
   }
   const videos = _getYoutubeDetails(lessons.map(lesson => lesson.id)).map(
     video => {
-      video.tags = video.tags.concat(
-        lessons.find(lesson => lesson.id === video.id).tags
-      );
+      video.customTags = lessons.find(
+        lesson => lesson.id === video.id
+      ).customTags;
       return video;
     }
   );
@@ -212,6 +213,7 @@ function _getLessons(tagExpression?: string): IVideo[] {
     for (const lesson of lessonsNotFoundOnYoutube) {
       videos.push({
         ...lesson,
+        tags: [],
         pointer: idCellMap[lesson.id]
           ? _getSpreadSheetUrl(lessonsSheetId, idCellMap[lesson.id])
           : undefined,
@@ -280,11 +282,17 @@ function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
       }
       return tags.every((tag, index) => {
         if (operations[index] === '*') {
-          return video.tags.includes(tag);
+          return video.customTags
+            ? video.customTags.includes(tag)
+            : video.tags.includes(tag);
         } else if (operations[index] === '/') {
-          return !video.tags.includes(tag);
+          return !(video.customTags
+            ? video.customTags.includes(tag)
+            : video.tags.includes(tag));
         } else {
-          return video.tags.includes(tag);
+          return video.customTags
+            ? video.customTags.includes(tag)
+            : video.tags.includes(tag);
         }
       });
     })
