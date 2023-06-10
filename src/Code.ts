@@ -1,5 +1,9 @@
 import YouTube = GoogleAppsScript.YouTube;
 
+interface ISection {
+  title: string;
+  videos: IVideo[];
+}
 interface IVideo {
   id: string;
   tags: string[];
@@ -9,7 +13,7 @@ interface IVideo {
 }
 interface IUser {
   email: string;
-  tagExpression: string;
+  tagExpressions: string[];
   count: number;
 }
 interface ILesson {
@@ -32,7 +36,7 @@ const sheetIdNameMap: {[sheetId: string]: string} = {
 };
 
 const test = () => {
-  const results = getVideos('kizomba/beginner/Niki*Viktor/dance+Balázs', 10);
+  const results = _getVideos('kizomba/beginner/Niki*Viktor/dance+Balázs', 10);
   results.forEach(result => {
     Logger.log(JSON.stringify(result));
   });
@@ -40,11 +44,12 @@ const test = () => {
 
 function sendDanceDigestEmail() {
   try {
-    const users = getUsers();
+    const users = _getUsers();
     Logger.log(JSON.stringify(users));
 
     for (const user of users) {
-      sendEmail(user, getVideos(user.tagExpression, user.count));
+      const sections = _getSections(user);
+      _sendEmail(user, sections);
     }
   } catch (err: any) {
     Logger.log(
@@ -54,9 +59,9 @@ function sendDanceDigestEmail() {
 }
 
 function downloadYoutubeDetails() {
-  const videos = getYoutubeUploads();
+  const videos = _getYoutubeUploads();
   SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(getSheetRange(uploadsSheetId, videos.length))
+    .getRange(_getSheetRange(uploadsSheetId, videos.length))
     .setValues(
       videos.map(video => [
         video.id,
@@ -68,9 +73,9 @@ function downloadYoutubeDetails() {
 }
 
 function uploadYoutubeDetails() {
-  const videos = getYoutubeUploads();
+  const videos = _getYoutubeUploads();
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(getSheetRange(uploadsSheetId))
+    .getRange(_getSheetRange(uploadsSheetId))
     .getValues()
     .filter(row => row[0]);
 
@@ -108,37 +113,49 @@ function onOpen() {
   addMenu();
 }
 
-function getUsers(): IUser[] {
+function _getSections(user: IUser) {
+  const sections: ISection[] = [];
+  for (const tagExpression of user.tagExpressions) {
+    const videos = _getVideos(tagExpression, user.count);
+    sections.push({
+      title: tagExpression,
+      videos,
+    });
+  }
+  return sections;
+}
+
+function _getUsers(): IUser[] {
   const userValues = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(getSheetRange(usersSheetId))
+    .getRange(_getSheetRange(usersSheetId))
     .getValues()
     .filter(row => row[0]);
   const users: IUser[] = [];
   for (const userValue of userValues) {
     users.push({
       email: userValue[0],
-      tagExpression: userValue[1],
+      tagExpressions: userValue[1].split(',').map((te: string) => te.trim()),
       count: userValue[2],
     });
   }
   return users;
 }
 
-function getVideos(tagExpression: string, count: number): IVideo[] {
+function _getVideos(tagExpression: string, count: number): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const videos: IVideo[] = [
-    ...getYoutubeUploads(tagExpression),
-    ...getLessons(tagExpression),
-    ...getGooglePhotosVideos(tagExpression),
+    ..._getYoutubeUploads(tagExpression),
+    ..._getLessons(tagExpression),
+    ..._getGooglePhotosVideos(tagExpression),
   ];
   for (let i = 0; i < count; i++) {
     //TODO implement more robust selection
-    selectedVideos.push(videos[getRandomInt(videos.length)]);
+    selectedVideos.push(videos[_getRandomInt(videos.length)]);
   }
   return selectedVideos;
 }
 
-function getYoutubeUploads(tagExpression?: string): IVideo[] {
+function _getYoutubeUploads(tagExpression?: string): IVideo[] {
   try {
     const results = YouTube.Channels.list('contentDetails', {
       mine: true,
@@ -149,13 +166,13 @@ function getYoutubeUploads(tagExpression?: string): IVideo[] {
     } else {
       const videos: IVideo[] = [];
       for (const item of results.items || []) {
-        const uploadVideos: IVideo[] = getVideosOfPlaylist(
+        const uploadVideos: IVideo[] = _getVideosOfPlaylist(
           item.contentDetails.relatedPlaylists.uploads
         );
         videos.push(...uploadVideos);
       }
       return tagExpression
-        ? filterVideosByTagExpression(videos, tagExpression)
+        ? _filterVideosByTagExpression(videos, tagExpression)
         : videos;
     }
   } catch (err: any) {
@@ -164,10 +181,10 @@ function getYoutubeUploads(tagExpression?: string): IVideo[] {
   }
 }
 
-function getLessons(tagExpression?: string): IVideo[] {
+function _getLessons(tagExpression?: string): IVideo[] {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const lessonValues = spreadsheet
-    .getRange(getSheetRange(lessonsSheetId))
+    .getRange(_getSheetRange(lessonsSheetId))
     .getValues()
     .filter(row => row[0]);
   const lessons: ILesson[] = [];
@@ -179,7 +196,7 @@ function getLessons(tagExpression?: string): IVideo[] {
       title: lessonValue[3],
     });
   }
-  const videos = getYoutubeDetails(lessons.map(lesson => lesson.id)).map(
+  const videos = _getYoutubeDetails(lessons.map(lesson => lesson.id)).map(
     video => {
       video.tags = video.tags.concat(
         lessons.find(lesson => lesson.id === video.id).tags
@@ -191,22 +208,22 @@ function getLessons(tagExpression?: string): IVideo[] {
     lesson => !videos.find(video => video.id === lesson.id)
   );
   if (lessonsNotFoundOnYoutube.length > 0) {
-    const idCellMap = createIdCellMap(lessonsSheetId);
+    const idCellMap = _createIdCellMap(lessonsSheetId);
     for (const lesson of lessonsNotFoundOnYoutube) {
       videos.push({
         ...lesson,
         pointer: idCellMap[lesson.id]
-          ? getSpreadSheetUrl(lessonsSheetId, idCellMap[lesson.id])
+          ? _getSpreadSheetUrl(lessonsSheetId, idCellMap[lesson.id])
           : undefined,
       });
     }
   }
   return tagExpression
-    ? filterVideosByTagExpression(videos, tagExpression)
+    ? _filterVideosByTagExpression(videos, tagExpression)
     : videos;
 }
 
-function getGooglePhotosVideos(tagExpression?: string): IVideo[] {
+function _getGooglePhotosVideos(tagExpression?: string): IVideo[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
   do {
@@ -246,11 +263,11 @@ function getGooglePhotosVideos(tagExpression?: string): IVideo[] {
   });
 
   return tagExpression
-    ? filterVideosByTagExpression(videos, tagExpression)
+    ? _filterVideosByTagExpression(videos, tagExpression)
     : videos;
 }
 
-function filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
+function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
   const terms = tagExpression.split('+');
   return videos.filter(video =>
     terms.some(term => {
@@ -274,7 +291,7 @@ function filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
   );
 }
 
-function getVideosOfPlaylist(playlistId: string): IVideo[] {
+function _getVideosOfPlaylist(playlistId: string): IVideo[] {
   const videoIds: string[] = [];
   let nextPageToken = null;
   do {
@@ -295,10 +312,10 @@ function getVideosOfPlaylist(playlistId: string): IVideo[] {
     nextPageToken = playlistResponse.nextPageToken;
   } while (nextPageToken);
 
-  return getYoutubeDetails(videoIds);
+  return _getYoutubeDetails(videoIds);
 }
 
-function getYoutubeDetails(videoIds: string[]): IVideo[] {
+function _getYoutubeDetails(videoIds: string[]): IVideo[] {
   const videos: IVideo[] = [];
   const responses: YouTube.Schema.VideoListResponse[] = [];
   const chunkSize = 50;
@@ -310,8 +327,8 @@ function getYoutubeDetails(videoIds: string[]): IVideo[] {
       })
     );
   }
-  const uploadsIdCellMap = createIdCellMap(uploadsSheetId);
-  const lessonsIdCellMap = createIdCellMap(lessonsSheetId);
+  const uploadsIdCellMap = _createIdCellMap(uploadsSheetId);
+  const lessonsIdCellMap = _createIdCellMap(lessonsSheetId);
   for (const response of responses) {
     videos.push(
       ...response.items.map(item => {
@@ -319,11 +336,11 @@ function getYoutubeDetails(videoIds: string[]): IVideo[] {
           id: item.id,
           tags: item.snippet.tags,
           title: item.snippet.title,
-          url: getYoutubeVideoUrl(item.id),
+          url: _getYoutubeVideoUrl(item.id),
           pointer: uploadsIdCellMap[item.id]
-            ? getSpreadSheetUrl(uploadsSheetId, uploadsIdCellMap[item.id])
+            ? _getSpreadSheetUrl(uploadsSheetId, uploadsIdCellMap[item.id])
             : lessonsIdCellMap[item.id]
-            ? getSpreadSheetUrl(lessonsSheetId, lessonsIdCellMap[item.id])
+            ? _getSpreadSheetUrl(lessonsSheetId, lessonsIdCellMap[item.id])
             : undefined,
         };
       })
@@ -332,24 +349,24 @@ function getYoutubeDetails(videoIds: string[]): IVideo[] {
   return videos;
 }
 
-function sendEmail(user: IUser, videos: IVideo[]): void {
-  if (videos.length > 0) {
+function _sendEmail(user: IUser, sections: ISection[]): void {
+  if (sections.length > 0) {
     const template = HtmlService.createTemplateFromFile(emailTemplateName);
-    template.videos = videos;
-    GmailApp.sendEmail(user.email, getEmailSubject(user), '', {
+    template.sections = sections;
+    GmailApp.sendEmail(user.email, _getEmailSubject(user), '', {
       htmlBody: template.evaluate().getContent(),
     });
   }
 }
 
-function getEmailSubject(user: IUser): string {
-  return `${emailSubject}: ${user.tagExpression}`;
+function _getEmailSubject(user: IUser): string {
+  return `${emailSubject}: ${user.tagExpressions.join(', ')}`;
 }
-function getRandomInt(max: number) {
+function _getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
 }
 
-function createIdCellMap(sheetId: string) {
+function _createIdCellMap(sheetId: string) {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = spreadsheet.getSheetByName(sheetIdNameMap[sheetId]);
 
@@ -366,12 +383,12 @@ function createIdCellMap(sheetId: string) {
 }
 
 const youtubeUrl = 'https://www.youtube.com/watch?v=';
-const getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
-const getSpreadSheetUrl = (sheetId: string, range?: string) =>
+const _getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
+const _getSpreadSheetUrl = (sheetId: string, range?: string) =>
   `https://docs.google.com/spreadsheets/d/${activeSpreadSheetId}/edit#gid=${sheetId}${
     range ? `&range=${range}` : ''
   }`;
-const getSheetRange = (sheetId: string, count?: number) =>
+const _getSheetRange = (sheetId: string, count?: number) =>
   `${sheetIdNameMap[sheetId]}!A2:D${count ? count + 1 : ''}`;
 
 // https://developers.google.com/photos/library/reference/rest/v1/mediaItems

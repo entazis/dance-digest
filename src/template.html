@@ -1,22 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <base target="_top">
     <title>Dance Digest</title>
   </head>
   <body>
-    <ul style="list-style-type: square">
-      <? for (const video of videos) { ?>
-        <li>
-          <a href="<?= video.url ?>"><?= video.title ?></a>:
-          <? for (const tag of video.tags) { ?>
-            <span><?= tag ?></span>
-          <? } ?>
-          <? if (video.pointer) { ?>
-            <a href="<?= video.pointer ?>">sheet</a>
-          <? } ?>
-        </li>
-      <? } ?>
-    </ul>
+    <h1>Dance Digest for today:</h1>
+    <? for (const section of sections) { ?>
+      <h2><?= section.title ?></h2>
+      <ul style="list-style-type: square">
+        <? for (const video of section.videos) { ?>
+          <li>
+            <a href="<?= video.url ?>"><?= video.title ?></a>:
+            <? for (const tag of video.tags) { ?>
+              <span><?= tag ?></span>
+            <? } ?>
+            <? if (video.pointer) { ?>
+              <a href="<?= video.pointer ?>">sheet</a>
+            <? } ?>
+          </li>
+        <? } ?>
+      </ul>
+    <? } ?>
   </body>
 </html>
