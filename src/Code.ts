@@ -146,19 +146,18 @@ function uploadGooglePhotosDetails() {
         )} from title: "${video.title}", tags: ${JSON.stringify(video.tags)})`
       );
 
-      //TODO FIXME "invalid media item ID"
-      // const mediaItemsUpdateUrl = `https://photoslibrary.googleapis.com/v1/mediaItems/${videoId}?updateMask=description`;
-      // const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
-      //   method: 'patch',
-      //   headers: {
-      //     Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
-      //   },
-      //   contentType: 'application/json',
-      //   payload: JSON.stringify({
-      //     description: tags.join(','),
-      //   }),
-      // };
-      // const response = UrlFetchApp.fetch(mediaItemsUpdateUrl, params);
+      const mediaItemsUpdateUrl = `https://photoslibrary.googleapis.com/v1/mediaItems/${videoId}?updateMask=description`;
+      const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+        method: 'patch',
+        headers: {
+          Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
+        },
+        contentType: 'application/json',
+        payload: JSON.stringify({
+          description: tags.join(','),
+        }),
+      };
+      const response = UrlFetchApp.fetch(mediaItemsUpdateUrl, params);
     }
   }
 }
@@ -171,6 +170,8 @@ function addMenu() {
   const menu = SpreadsheetApp.getUi().createMenu('Script');
   menu.addItem('Download Youtube details', 'downloadYoutubeDetails');
   menu.addItem('Upload Youtube details', 'uploadYoutubeDetails');
+  menu.addItem('Download Google Photos details', 'downloadGooglePhotosDetails');
+  menu.addItem('Upload Google Photos details', 'uploadGooglePhotosDetails');
   menu.addToUi();
 }
 
