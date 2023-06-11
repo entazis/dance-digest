@@ -1,7 +1,7 @@
 import YouTube = GoogleAppsScript.YouTube;
 
 interface ISection {
-  title: string;
+  name: string;
   videos: IVideo[];
 }
 interface IVideo {
@@ -14,14 +14,46 @@ interface IVideo {
 }
 interface IUser {
   email: string;
-  tagExpressions: string[];
-  count: number;
+  tracks: ITrack[];
+}
+interface ITrack {
+  name: string;
+  schedule?: string;
+  select: ITrackSelect;
+  filter?: ITrackFilter;
+  sort?: ITrackSort;
+  limit?: ITrackLimit;
+}
+interface ITrackSelect {
+  youtubePlaylistItems?: ISelectYoutubePlaylistItems;
+  youtubeVideos?: ISelectYoutubeVideos;
+  googlePhotos?: ISelectGooglePhotos;
+}
+interface ITrackFilter {
+  tagExpression?: string;
+}
+interface ITrackSort {
+  by: SortBy;
+}
+interface ITrackLimit {
+  offset?: number;
+  count?: number;
+}
+interface ISelectGooglePhotos {
+  albumIds?: string[];
+  mediaItemIds?: string[];
 }
 interface ILesson {
   id: string;
   customTags: string[];
   url: string;
   title: string;
+}
+
+enum SortBy {
+  Title = 'title',
+  Date = 'date',
+  Random = 'random',
 }
 
 const emailTemplateName = 'template';
@@ -38,8 +70,40 @@ const sheetIdNameMap: {[sheetId: string]: string} = {
   [googlePhotosSheetId]: 'googlePhotos',
 };
 
+const testTrack: ITrack = {
+  name: 'Practice Bachata',
+  select: {
+    youtubePlaylistItems: {
+      list: {
+        part: 'snippet',
+        optionalArgs: {
+          playlistId: _getYoutubeUploadsPlaylistId(),
+          maxResults: 25,
+        },
+      },
+    },
+    youtubeVideos: {
+      list: {
+        part: 'snippet',
+        optionalArgs: {
+          id: 'CvE0nvyn57w,C6rmpz84aGA,CvzRvpctyaI,QOUadS1FYNc,wlSF0ztk47k,c3QiY_bxU2s,JZw-yYc1bJw,Kl28yQGm1DM,WmtgwdAhEgw,T50f1JcKyvQ,KdwJt3a4Khg,xULxFEtKis8,htdxKWuL4QM,K9fmAh2rTqE,KSd2w72t3xA,7-NSbgdhJ6Q,wzPKWV9LU_Q,zGk9PVQXXo0,GVHiK8ANgkk,updgP09qDHQ,jMFybB_fKks,3yPn9yhTYJU,d9kPiLKb35k,1N4-Nw2k3Hc,NSkWrxFdRCo,ekzGjMZSj5A,UkPukO3M8eQ,yIrQEtMXqNA,p-JlxxcvFng',
+        },
+      },
+    },
+  },
+  filter: {
+    tagExpression: 'bachata',
+  },
+  sort: {
+    by: SortBy.Random,
+  },
+  limit: {
+    count: 3,
+  },
+};
+
 const test = () => {
-  const results = _getVideos('kizomba/beginner/Niki*Viktor/dance+Balázs', 10);
+  const results = _getVideos(testTrack);
   results.forEach(result => {
     Logger.log(JSON.stringify(result));
   });
@@ -61,9 +125,16 @@ function sendDanceDigestEmail() {
   }
 }
 
-//TODO refactor, download(service)
-function downloadYoutubeDetails() {
-  const videos = _getYoutubeUploads();
+function downloadYoutubeUploadsDetails() {
+  const videos = _getYoutubePlaylistItemsVideos({
+    list: {
+      part: 'snippet',
+      optionalArgs: {
+        playlistId: _getYoutubeUploadsPlaylistId(),
+        maxResults: 25,
+      },
+    },
+  });
   SpreadsheetApp.getActiveSpreadsheet()
     .getRange(_getSheetRange(youtubeUploadsSheetId, videos.length))
     .setValues(
@@ -76,9 +147,16 @@ function downloadYoutubeDetails() {
     );
 }
 
-//TODO refactor, upload(service)
-function uploadYoutubeDetails() {
-  const videos = _getYoutubeUploads();
+function uploadYoutubeUploadsDetails() {
+  const videos = _getYoutubePlaylistItemsVideos({
+    list: {
+      part: 'snippet',
+      optionalArgs: {
+        playlistId: _getYoutubeUploadsPlaylistId(),
+        maxResults: 25,
+      },
+    },
+  });
   const results = SpreadsheetApp.getActiveSpreadsheet()
     .getRange(_getSheetRange(youtubeUploadsSheetId))
     .getValues()
@@ -175,18 +253,6 @@ function addMenu() {
   menu.addToUi();
 }
 
-function _getSections(user: IUser) {
-  const sections: ISection[] = [];
-  for (const tagExpression of user.tagExpressions) {
-    const videos = _getVideos(tagExpression, user.count);
-    sections.push({
-      title: tagExpression,
-      videos,
-    });
-  }
-  return sections;
-}
-
 function _getUsers(): IUser[] {
   const userValues = SpreadsheetApp.getActiveSpreadsheet()
     .getRange(_getSheetRange(usersSheetId))
@@ -196,94 +262,105 @@ function _getUsers(): IUser[] {
   for (const userValue of userValues) {
     users.push({
       email: userValue[0],
-      tagExpressions: userValue[1].split(',').map((te: string) => te.trim()),
-      count: userValue[2],
+      tracks: JSON.parse(userValue[1]),
     });
   }
   return users;
 }
 
-function _getVideos(tagExpression: string, count: number): IVideo[] {
-  const selectedVideos: IVideo[] = [];
-  const videos: IVideo[] = [
-    ..._getYoutubeUploads(tagExpression),
-    ..._getLessons(tagExpression),
-    ..._getGooglePhotosVideos(tagExpression),
-  ];
-  for (let i = 0; i < count; i++) {
-    //TODO implement more robust selection
-    selectedVideos.push(videos[_getRandomInt(videos.length)]);
-  }
-  return selectedVideos;
-}
-
-function _getYoutubeUploads(tagExpression?: string): IVideo[] {
-  try {
-    const results = YouTube.Channels.list('contentDetails', {
-      mine: true,
-    });
-    if (!results || results.items.length === 0) {
-      Logger.log('no channels found');
-      return [];
-    } else {
-      const videos: IVideo[] = [];
-      for (const item of results.items || []) {
-        const uploadVideos: IVideo[] = _getVideosOfPlaylist(
-          item.contentDetails.relatedPlaylists.uploads
-        );
-        videos.push(...uploadVideos);
-      }
-      return tagExpression
-        ? _filterVideosByTagExpression(videos, tagExpression)
-        : videos;
-    }
-  } catch (err: any) {
-    Logger.log(`Error - getYoutubeUploads(): ${err.message}`);
-    return [];
-  }
-}
-
-function _getLessons(tagExpression?: string): IVideo[] {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const lessonValues = spreadsheet
-    .getRange(_getSheetRange(lessonsSheetId))
-    .getValues()
-    .filter(row => row[0]);
-  const lessons: ILesson[] = [];
-  for (const lessonValue of lessonValues) {
-    lessons.push({
-      id: lessonValue[0],
-      customTags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
-      url: lessonValue[2],
-      title: lessonValue[3],
+function _getSections(user: IUser) {
+  const sections: ISection[] = [];
+  for (const track of user.tracks) {
+    const {name, schedule} = track;
+    sections.push({
+      name,
+      videos: _getVideos(track),
     });
   }
-  const videos = _getYoutubeDetails(lessons.map(lesson => lesson.id)).map(
-    video => {
-      video.customTags = lessons.find(
-        lesson => lesson.id === video.id
-      ).customTags;
-      return video;
-    }
-  );
-  const lessonsNotFoundOnYoutube = lessons.filter(
-    lesson => !videos.find(video => video.id === lesson.id)
-  );
-  if (lessonsNotFoundOnYoutube.length > 0) {
-    const idCellMap = _createIdCellMap(lessonsSheetId);
-    for (const lesson of lessonsNotFoundOnYoutube) {
-      videos.push({
-        ...lesson,
-        tags: [],
-        pointer: idCellMap[lesson.id]
-          ? _getSpreadSheetUrl(lessonsSheetId, idCellMap[lesson.id])
-          : undefined,
+  return sections;
+}
+
+function _getVideos(track: ITrack): IVideo[] {
+  const {select, filter, sort, limit} = track;
+  let videos: IVideo[] = _selectVideos(select);
+  if (filter) {
+    videos = _filterVideos(videos, filter);
+  }
+  if (sort) {
+    videos = _sortVideos(videos, sort);
+  }
+  if (limit) {
+    videos = _limitVideos(videos, limit);
+  }
+  return videos;
+}
+
+function _selectVideos(select: ITrackSelect): IVideo[] {
+  const videos: IVideo[] = [];
+  if (select.youtubePlaylistItems) {
+    videos.push(..._getYoutubePlaylistItemsVideos(select.youtubePlaylistItems));
+  }
+  if (select.youtubeVideos) {
+    videos.push(..._getYoutubeVideos(select.youtubeVideos));
+  }
+  if (select.googlePhotos) {
+    videos.push(..._getGooglePhotosVideos());
+  }
+  return videos;
+}
+
+function _filterVideos(videos: IVideo[], filter: ITrackFilter): IVideo[] {
+  const {tagExpression} = filter;
+  if (tagExpression) {
+    videos = _filterVideosByTagExpression(videos, tagExpression);
+  }
+  return videos;
+}
+
+function _sortVideos(videos: IVideo[], sort: ITrackSort): IVideo[] {
+  switch (sort.by) {
+    case SortBy.Random:
+      return _shuffle(videos);
+    default:
+      throw new Error(`unknown sort by: ${sort.by}`);
+  }
+}
+
+function _limitVideos(videos: IVideo[], limit: ITrackLimit): IVideo[] {
+  return videos.slice(limit.offset ? limit.offset : 0, limit.count);
+}
+
+function _getYoutubePlaylistItemsVideos(
+  selectYoutubePlaylistItems: ISelectYoutubePlaylistItems
+): IVideo[] {
+  const {part, optionalArgs} = selectYoutubePlaylistItems.list;
+  const videoIds: string[] = [];
+  let nextPageToken = null;
+  do {
+    const playlistResponse: YouTube.Schema.PlaylistItemListResponse =
+      YouTube.PlaylistItems.list(part, {
+        ...optionalArgs,
+        pageToken: nextPageToken,
       });
+    if (!playlistResponse || playlistResponse.items.length === 0) {
+      Logger.log('no playlist found');
+      break;
+    } else {
+      for (const item of playlistResponse.items || []) {
+        videoIds.push(item.snippet.resourceId.videoId);
+      }
     }
-  }
-  return tagExpression
-    ? _filterVideosByTagExpression(videos, tagExpression)
-    : videos;
+    nextPageToken = playlistResponse.nextPageToken;
+  } while (nextPageToken);
+  const selectYoutubeVideos: ISelectYoutubeVideos = {
+    list: {
+      part: 'snippet',
+      optionalArgs: {
+        id: videoIds.join(','),
+      },
+    },
+  };
+  return _getYoutubeVideos(selectYoutubeVideos);
 }
 
 function _getGooglePhotosVideos(tagExpression?: string): IVideo[] {
@@ -330,6 +407,56 @@ function _getGooglePhotosVideos(tagExpression?: string): IVideo[] {
     : videos;
 }
 
+//TODO refactor lessons to "custom tagging" and merge into youtube uploads
+function _getLessons(tagExpression?: string): IVideo[] {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const lessonValues = spreadsheet
+    .getRange(_getSheetRange(lessonsSheetId))
+    .getValues()
+    .filter(row => row[0]);
+  const lessons: ILesson[] = [];
+  for (const lessonValue of lessonValues) {
+    lessons.push({
+      id: lessonValue[0],
+      customTags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
+      url: lessonValue[2],
+      title: lessonValue[3],
+    });
+  }
+  const selectYoutubeVideos: ISelectYoutubeVideos = {
+    list: {
+      part: 'snippet',
+      optionalArgs: {
+        id: lessons.map(lesson => lesson.id).join(','),
+      },
+    },
+  };
+  const videos = _getYoutubeVideos(selectYoutubeVideos).map(video => {
+    video.customTags = lessons.find(
+      lesson => lesson.id === video.id
+    ).customTags;
+    return video;
+  });
+  const lessonsNotFoundOnYoutube = lessons.filter(
+    lesson => !videos.find(video => video.id === lesson.id)
+  );
+  if (lessonsNotFoundOnYoutube.length > 0) {
+    const idCellMap = _createIdCellMap(lessonsSheetId);
+    for (const lesson of lessonsNotFoundOnYoutube) {
+      videos.push({
+        ...lesson,
+        tags: [],
+        pointer: idCellMap[lesson.id]
+          ? _getSpreadSheetUrl(lessonsSheetId, idCellMap[lesson.id])
+          : undefined,
+      });
+    }
+  }
+  return tagExpression
+    ? _filterVideosByTagExpression(videos, tagExpression)
+    : videos;
+}
+
 function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
   const terms = tagExpression.split('+');
   return videos.filter(video =>
@@ -360,38 +487,16 @@ function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
   );
 }
 
-function _getVideosOfPlaylist(playlistId: string): IVideo[] {
-  const videoIds: string[] = [];
-  let nextPageToken = null;
-  do {
-    const playlistResponse: YouTube.Schema.PlaylistItemListResponse =
-      YouTube.PlaylistItems.list('snippet', {
-        playlistId: playlistId,
-        maxResults: 25,
-        pageToken: nextPageToken,
-      });
-    if (!playlistResponse || playlistResponse.items.length === 0) {
-      Logger.log('no playlist found');
-      break;
-    } else {
-      for (const item of playlistResponse.items || []) {
-        videoIds.push(item.snippet.resourceId.videoId);
-      }
-    }
-    nextPageToken = playlistResponse.nextPageToken;
-  } while (nextPageToken);
-
-  return _getYoutubeDetails(videoIds);
-}
-
-function _getYoutubeDetails(videoIds: string[]): IVideo[] {
+function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
+  const {part, optionalArgs} = youtubeVideos.list;
   const videos: IVideo[] = [];
   const responses: YouTube.Schema.VideoListResponse[] = [];
   const chunkSize = 50;
+  const videoIds = optionalArgs.id.split(',');
   for (let i = 0; i < videoIds.length; i += chunkSize) {
     const vIds = videoIds.slice(i, i + chunkSize);
     responses.push(
-      YouTube.Videos.list('snippet', {
+      YouTube.Videos.list(part, {
         id: vIds.join(','),
       })
     );
@@ -431,11 +536,47 @@ function _sendEmail(user: IUser, sections: ISection[]): void {
   }
 }
 
+function _getYoutubeUploadsPlaylistId(): string {
+  const selectYoutubeChannels: ISelectYoutubeChannels = {
+    list: {
+      part: 'contentDetails',
+      optionalArgs: {
+        mine: true,
+      },
+    },
+  };
+  const {part, optionalArgs} = selectYoutubeChannels.list;
+  const result = YouTube.Channels.list(part, optionalArgs);
+  if (!result || result.items.length === 0) {
+    Logger.log(
+      `no channels found with uploads playlist, ${JSON.stringify(
+        selectYoutubeChannels
+      )}`
+    );
+    throw new Error('no channels found with uploads playlist');
+  } else if (result.items.length > 1) {
+    Logger.log(
+      `more than one channel found with uploads playlist, using the first one, ${JSON.stringify(
+        selectYoutubeChannels
+      )}`
+    );
+  }
+  return result.items[0].contentDetails.relatedPlaylists.uploads;
+}
+
 function _getEmailSubject(user: IUser): string {
-  return `${emailSubject}: ${user.tagExpressions.join(', ')}`;
+  return `${emailSubject}: ${user.tracks.map(track => track.name).join(', ')}`;
 }
 function _getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
+}
+function _shuffle([...arr]) {
+  let m = arr.length;
+  while (m) {
+    const i = Math.floor(Math.random() * m--);
+    [arr[m], arr[i]] = [arr[i], arr[m]];
+  }
+  return arr;
 }
 
 function _createIdCellMap(sheetId: string) {
@@ -462,6 +603,87 @@ const _getSpreadSheetUrl = (sheetId: string, range?: string) =>
   }`;
 const _getSheetRange = (sheetId: string, count?: number) =>
   `${sheetIdNameMap[sheetId]}!A2:D${count ? count + 1 : ''}`;
+
+// https://developers.google.com/youtube/v3/docs/playlistItems/list
+interface ISelectYoutubePlaylistItems {
+  list: {
+    part: 'contentDetails' | 'id' | 'snippet' | 'status';
+    optionalArgs: {
+      id?: string;
+      maxResults?: number;
+      onBehalfOfContentOwner?: string;
+      pageToken?: string;
+      playlistId?: string;
+      videoId?: string;
+    };
+  };
+}
+
+// https://developers.google.com/youtube/v3/docs/videos/list
+interface ISelectYoutubeVideos {
+  list: {
+    part:
+      | 'contentDetails'
+      | 'fileDetails'
+      | 'id'
+      | 'liveStreamingDetails'
+      | 'localizations'
+      | 'player'
+      | 'processingDetails'
+      | 'recordingDetails'
+      | 'snippet'
+      | 'statistics'
+      | 'status'
+      | 'suggestions'
+      | 'topicDetails';
+    optionalArgs: {
+      chart?: 'mostPopular';
+      id?: string;
+      myRating?: 'like' | 'dislike';
+
+      hl?: string;
+      maxHeight?: number;
+      maxResults?: number;
+      maxWidth?: number;
+      onBehalfOfContentOwner?: string;
+      pageToken?: string;
+      regionCode?: string;
+      videoCategoryId?: string;
+    };
+  };
+}
+
+// https://developers.google.com/youtube/v3/docs/channels/list
+interface ISelectYoutubeChannels {
+  list: {
+    part:
+      | 'auditDetails'
+      | 'brandingSettings'
+      | 'contentDetails'
+      | 'contentOwnerDetails'
+      | 'id'
+      | 'localizations'
+      | 'snippet'
+      | 'statistics'
+      | 'status'
+      | 'topicDetails';
+    optionalArgs: {
+      categoryId?: string; //deprecated
+      forUsername?: string;
+      id?: string;
+      managedByMe?: boolean;
+      mine?: boolean;
+
+      hl?: string;
+      maxResults?: number;
+      onBehalfOfContentOwner?: string;
+      pageToken?: string;
+    };
+  };
+  playlistIds?: string[];
+  query?: string;
+  videoIds?: string[];
+}
 
 // https://developers.google.com/photos/library/reference/rest/v1/mediaItems
 interface IMediaItem {
