@@ -25,9 +25,12 @@ interface ITrack {
   limit?: ITrackLimit;
 }
 interface ITrackSelect {
-  youtubePlaylistItems?: ISelectYoutubePlaylistItems;
-  youtubeVideos?: ISelectYoutubeVideos;
+  youtube?: ISelectYoutube;
   googlePhotos?: ISelectGooglePhotos;
+}
+interface ISelectYoutube {
+  playlistItems?: ISelectYoutubePlaylistItems;
+  videos?: ISelectYoutubeVideos;
 }
 interface ITrackFilter {
   tagExpression?: string;
@@ -40,8 +43,86 @@ interface ITrackLimit {
   count?: number;
 }
 interface ISelectGooglePhotos {
-  albumIds?: string[];
-  mediaItemIds?: string[];
+  mediaItems: {
+    search?: ISelectGooglePhotosMediaItemsSearch;
+    //TODO implement list, get, batchGet apis (GET)
+    list?: any;
+    get?: any;
+    batchGet?: any;
+  };
+  //TODO implement albums, sharedAlbums apis (GET)
+  albums?: any;
+  sharedAlbums?: any;
+}
+interface ISelectGooglePhotosMediaItemsSearch {
+  albumId?: string;
+  pageSize?: number;
+  pageToken?: string;
+  filters?: {
+    dateFilter?: {
+      dates?: IGooglePhotosDate[];
+      ranges?: {
+        startDate?: IGooglePhotosDate;
+        endDate?: IGooglePhotosDate;
+      }[];
+    };
+    contentFilter?: {
+      includedContentCategories?: GooglePhotosContentCategory[];
+      excludedContentCategories?: GooglePhotosContentCategory[];
+    };
+    mediaTypeFilter?: {
+      mediaTypes: GooglePhotosMediaType[];
+    };
+    featureFilter?: {
+      includedFeatures: GooglePhotosFeature[];
+    };
+    includeArchivedMedia?: boolean;
+    excludeNonAppCreatedData?: boolean;
+  };
+  orderBy?: string;
+}
+interface IGooglePhotosDate {
+  year: number;
+  month: number;
+  day: number;
+}
+enum GooglePhotosContentCategory {
+  None = 'NONE',
+  Landscapes = 'LANDSCAPES',
+  Receipts = 'RECEIPTS',
+  Cityscapes = 'CITYSCAPES',
+  Landmarks = 'LANDMARKS',
+  Selfies = 'SELFIES',
+  People = 'PEOPLE',
+  Pets = 'PETS',
+  Weddings = 'WEDDINGS',
+  Birthdays = 'BIRTHDAYS',
+  Documents = 'DOCUMENTS',
+  Travel = 'TRAVEL',
+  Animals = 'ANIMALS',
+  Food = 'FOOD',
+  Sports = 'SPORTS',
+  Night = 'NIGHT',
+  Performances = 'PERFORMANCES',
+  Whiteboards = 'WHITEBOARDS',
+  Screenshots = 'SCREENSHOTS',
+  Utility = 'UTILITY',
+  Arts = 'ARTS',
+  Crafts = 'CRAFTS',
+  Fashion = 'FASHION',
+  Houses = 'HOUSES',
+  Gardens = 'GARDENS',
+  Flowers = 'FLOWERS',
+  Holidays = 'HOLIDAYS',
+}
+enum GooglePhotosMediaType {
+  AllMedia = 'ALL_MEDIA',
+  Video = 'VIDEO',
+  Photo = 'PHOTO',
+}
+enum GooglePhotosFeature {
+  None = 'NONE',
+  Favorites = 'FAVORITES',
 }
 interface ILesson {
   id: string;
@@ -73,20 +154,34 @@ const sheetIdNameMap: {[sheetId: string]: string} = {
 const testTrack: ITrack = {
   name: 'Practice Bachata',
   select: {
-    youtubePlaylistItems: {
-      list: {
-        part: 'snippet',
-        optionalArgs: {
-          playlistId: _getYoutubeUploadsPlaylistId(),
-          maxResults: 25,
+    youtube: {
+      playlistItems: {
+        list: {
+          part: 'snippet',
+          optionalArgs: {
+            playlistId: _getYoutubeUploadsPlaylistId(),
+            maxResults: 25,
+          },
+        },
+      },
+      videos: {
+        list: {
+          part: 'snippet',
+          optionalArgs: {
+            id: 'CvE0nvyn57w,C6rmpz84aGA,CvzRvpctyaI,QOUadS1FYNc,wlSF0ztk47k,c3QiY_bxU2s,JZw-yYc1bJw,Kl28yQGm1DM,WmtgwdAhEgw,T50f1JcKyvQ,KdwJt3a4Khg,xULxFEtKis8,htdxKWuL4QM,K9fmAh2rTqE,KSd2w72t3xA,7-NSbgdhJ6Q,wzPKWV9LU_Q,zGk9PVQXXo0,GVHiK8ANgkk,updgP09qDHQ,jMFybB_fKks,3yPn9yhTYJU,d9kPiLKb35k,1N4-Nw2k3Hc,NSkWrxFdRCo,ekzGjMZSj5A,UkPukO3M8eQ,yIrQEtMXqNA,p-JlxxcvFng',
+          },
         },
       },
     },
-    youtubeVideos: {
-      list: {
-        part: 'snippet',
-        optionalArgs: {
-          id: 'CvE0nvyn57w,C6rmpz84aGA,CvzRvpctyaI,QOUadS1FYNc,wlSF0ztk47k,c3QiY_bxU2s,JZw-yYc1bJw,Kl28yQGm1DM,WmtgwdAhEgw,T50f1JcKyvQ,KdwJt3a4Khg,xULxFEtKis8,htdxKWuL4QM,K9fmAh2rTqE,KSd2w72t3xA,7-NSbgdhJ6Q,wzPKWV9LU_Q,zGk9PVQXXo0,GVHiK8ANgkk,updgP09qDHQ,jMFybB_fKks,3yPn9yhTYJU,d9kPiLKb35k,1N4-Nw2k3Hc,NSkWrxFdRCo,ekzGjMZSj5A,UkPukO3M8eQ,yIrQEtMXqNA,p-JlxxcvFng',
+    googlePhotos: {
+      mediaItems: {
+        search: {
+          pageSize: 100,
+          filters: {
+            mediaTypeFilter: {
+              mediaTypes: [GooglePhotosMediaType.Video],
+            },
+          },
         },
       },
     },
@@ -186,7 +281,18 @@ function uploadYoutubeUploadsDetails() {
 }
 
 function downloadGooglePhotosDetails() {
-  const videos = _getGooglePhotosVideos();
+  const videos = _getGooglePhotosVideos({
+    mediaItems: {
+      search: {
+        pageSize: 100,
+        filters: {
+          mediaTypeFilter: {
+            mediaTypes: [GooglePhotosMediaType.Video],
+          },
+        },
+      },
+    },
+  });
   SpreadsheetApp.getActiveSpreadsheet()
     .getRange(_getSheetRange(googlePhotosSheetId, videos.length))
     .setValues(
@@ -200,7 +306,18 @@ function downloadGooglePhotosDetails() {
 }
 
 function uploadGooglePhotosDetails() {
-  const videos = _getGooglePhotosVideos();
+  const videos = _getGooglePhotosVideos({
+    mediaItems: {
+      search: {
+        pageSize: 100,
+        filters: {
+          mediaTypeFilter: {
+            mediaTypes: [GooglePhotosMediaType.Video],
+          },
+        },
+      },
+    },
+  });
   const results = SpreadsheetApp.getActiveSpreadsheet()
     .getRange(_getSheetRange(googlePhotosSheetId))
     .getValues()
@@ -296,17 +413,21 @@ function _getVideos(track: ITrack): IVideo[] {
 }
 
 function _selectVideos(select: ITrackSelect): IVideo[] {
-  const videos: IVideo[] = [];
-  if (select.youtubePlaylistItems) {
-    videos.push(..._getYoutubePlaylistItemsVideos(select.youtubePlaylistItems));
+  const selectedVideos: IVideo[] = [];
+  const {youtube, googlePhotos} = select;
+  if (youtube) {
+    const {playlistItems, videos} = youtube;
+    if (playlistItems) {
+      selectedVideos.push(..._getYoutubePlaylistItemsVideos(playlistItems));
+    }
+    if (videos) {
+      selectedVideos.push(..._getYoutubeVideos(videos));
+    }
   }
-  if (select.youtubeVideos) {
-    videos.push(..._getYoutubeVideos(select.youtubeVideos));
+  if (googlePhotos) {
+    selectedVideos.push(..._getGooglePhotosVideos(googlePhotos));
   }
-  if (select.googlePhotos) {
-    videos.push(..._getGooglePhotosVideos());
-  }
-  return videos;
+  return selectedVideos;
 }
 
 function _filterVideos(videos: IVideo[], filter: ITrackFilter): IVideo[] {
@@ -363,35 +484,33 @@ function _getYoutubePlaylistItemsVideos(
   return _getYoutubeVideos(selectYoutubeVideos);
 }
 
-function _getGooglePhotosVideos(tagExpression?: string): IVideo[] {
+function _getGooglePhotosVideos(
+  selectGooglePhotos: ISelectGooglePhotos
+): IVideo[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
-  do {
+  const {search} = selectGooglePhotos.mediaItems;
+  if (search) {
     const mediaItemsSearchUrl =
       'https://photoslibrary.googleapis.com/v1/mediaItems:search';
-    const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
-      method: 'post',
-      headers: {
-        Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
-      },
-      contentType: 'application/json',
-      payload: JSON.stringify({
-        pageSize: 100,
-        pageToken,
-        filters: {
-          mediaTypeFilter: {
-            mediaTypes: ['VIDEO'],
-          },
+    do {
+      search.pageToken = pageToken;
+      const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+        method: 'post',
+        headers: {
+          Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
         },
-      }),
-    };
-    const response = UrlFetchApp.fetch(mediaItemsSearchUrl, params);
-    const result = JSON.parse(response.getContentText());
-    mediaItems = mediaItems.concat(result.mediaItems);
-    pageToken = result.nextPageToken;
-  } while (pageToken);
+        contentType: 'application/json',
+        payload: JSON.stringify(search),
+      };
+      const response = UrlFetchApp.fetch(mediaItemsSearchUrl, params);
+      const result = JSON.parse(response.getContentText());
+      mediaItems = mediaItems.concat(result.mediaItems);
+      pageToken = result.nextPageToken;
+    } while (pageToken);
+  }
 
-  const videos: IVideo[] = mediaItems.map(item => {
+  return mediaItems.map(item => {
     return {
       id: item.id,
       tags: item.description
@@ -401,10 +520,6 @@ function _getGooglePhotosVideos(tagExpression?: string): IVideo[] {
       url: item.productUrl,
     };
   });
-
-  return tagExpression
-    ? _filterVideosByTagExpression(videos, tagExpression)
-    : videos;
 }
 
 //TODO refactor lessons to "custom tagging" and merge into youtube uploads
