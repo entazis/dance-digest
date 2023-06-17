@@ -1,5 +1,9 @@
 import YouTube = GoogleAppsScript.YouTube;
 
+interface IUser {
+  email: string;
+  tracks: ITrack[];
+}
 interface ISection {
   name: string;
   videos: IVideo[];
@@ -11,10 +15,6 @@ interface IVideo {
   url: string;
   pointer?: string;
   customTags?: string[];
-}
-interface IUser {
-  email: string;
-  tracks: ITrack[];
 }
 interface ITrack {
   name: string;
@@ -28,10 +28,6 @@ interface ITrackSelect {
   youtube?: ISelectYoutube;
   googlePhotos?: ISelectGooglePhotos;
 }
-interface ISelectYoutube {
-  playlistItems?: ISelectYoutubePlaylistItems;
-  videos?: ISelectYoutubeVideos;
-}
 interface ITrackFilter {
   tagExpression?: string;
 }
@@ -42,88 +38,17 @@ interface ITrackLimit {
   offset?: number;
   count?: number;
 }
+interface ISelectYoutube {
+  playlistItems?: ISelectYoutubePlaylistItems;
+  videos?: ISelectYoutubeVideos;
+}
 interface ISelectGooglePhotos {
-  mediaItems: {
-    search?: ISelectGooglePhotosMediaItemsSearch;
-    //TODO implement list, get, batchGet apis (GET)
-    list?: any;
-    get?: any;
-    batchGet?: any;
-  };
+  mediaItems: ISelectGooglePhotosMediaItems;
   //TODO implement albums, sharedAlbums apis (GET)
   albums?: any;
   sharedAlbums?: any;
 }
-interface ISelectGooglePhotosMediaItemsSearch {
-  albumId?: string;
-  pageSize?: number;
-  pageToken?: string;
-  filters?: {
-    dateFilter?: {
-      dates?: IGooglePhotosDate[];
-      ranges?: {
-        startDate?: IGooglePhotosDate;
-        endDate?: IGooglePhotosDate;
-      }[];
-    };
-    contentFilter?: {
-      includedContentCategories?: GooglePhotosContentCategory[];
-      excludedContentCategories?: GooglePhotosContentCategory[];
-    };
-    mediaTypeFilter?: {
-      mediaTypes: GooglePhotosMediaType[];
-    };
-    featureFilter?: {
-      includedFeatures: GooglePhotosFeature[];
-    };
-    includeArchivedMedia?: boolean;
-    excludeNonAppCreatedData?: boolean;
-  };
-  orderBy?: string;
-}
-interface IGooglePhotosDate {
-  year: number;
-  month: number;
-  day: number;
-}
-enum GooglePhotosContentCategory {
-  None = 'NONE',
-  Landscapes = 'LANDSCAPES',
-  Receipts = 'RECEIPTS',
-  Cityscapes = 'CITYSCAPES',
-  Landmarks = 'LANDMARKS',
-  Selfies = 'SELFIES',
-  People = 'PEOPLE',
-  Pets = 'PETS',
-  Weddings = 'WEDDINGS',
-  Birthdays = 'BIRTHDAYS',
-  Documents = 'DOCUMENTS',
-  Travel = 'TRAVEL',
-  Animals = 'ANIMALS',
-  Food = 'FOOD',
-  Sports = 'SPORTS',
-  Night = 'NIGHT',
-  Performances = 'PERFORMANCES',
-  Whiteboards = 'WHITEBOARDS',
-  Screenshots = 'SCREENSHOTS',
-  Utility = 'UTILITY',
-  Arts = 'ARTS',
-  Crafts = 'CRAFTS',
-  Fashion = 'FASHION',
-  Houses = 'HOUSES',
-  Gardens = 'GARDENS',
-  Flowers = 'FLOWERS',
-  Holidays = 'HOLIDAYS',
-}
-enum GooglePhotosMediaType {
-  AllMedia = 'ALL_MEDIA',
-  Video = 'VIDEO',
-  Photo = 'PHOTO',
-}
-enum GooglePhotosFeature {
-  None = 'NONE',
-  Favorites = 'FAVORITES',
-}
+//TODO refactor lessons to use ISelectYoutubeVideos
 interface ILesson {
   id: string;
   customTags: string[];
@@ -137,18 +62,48 @@ enum SortBy {
   Random = 'random',
 }
 
-const emailTemplateName = 'template';
-const emailSubject = 'Daily Dance Digest';
-const activeSpreadSheetId = '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E';
-const usersSheetId = '1345088339';
-const youtubeUploadsSheetId = '1190338372';
-const lessonsSheetId = '472806840';
-const googlePhotosSheetId = '1878936212';
+const apiConfig = {
+  email: {
+    templateName: 'template',
+    subject: 'Daily Dance Digest',
+  },
+  spreadsheet: {
+    activeSpreadSheetId: '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E',
+    usersSheetId: '1345088339',
+    youtubeUploadsSheetId: '1190338372',
+    lessonsSheetId: '472806840',
+    googlePhotosSheetId: '1878936212',
+  },
+};
+
 const sheetIdNameMap: {[sheetId: string]: string} = {
-  [usersSheetId]: 'users',
-  [youtubeUploadsSheetId]: 'youtubeUploads',
-  [lessonsSheetId]: 'lessons',
-  [googlePhotosSheetId]: 'googlePhotos',
+  [apiConfig.spreadsheet.usersSheetId]: 'users',
+  [apiConfig.spreadsheet.youtubeUploadsSheetId]: 'youtubeUploads',
+  [apiConfig.spreadsheet.lessonsSheetId]: 'lessons',
+  [apiConfig.spreadsheet.googlePhotosSheetId]: 'googlePhotos',
+};
+
+const selectYoutubeUploadsPlaylistItems: ISelectYoutubePlaylistItems = {
+  list: {
+    part: 'snippet',
+    optionalArgs: {
+      playlistId: _getYoutubeUploadsPlaylistId(),
+      maxResults: 25,
+    },
+  },
+};
+
+const selectGooglePhotosUploads: ISelectGooglePhotos = {
+  mediaItems: {
+    search: {
+      pageSize: 100,
+      filters: {
+        mediaTypeFilter: {
+          mediaTypes: ['VIDEO'],
+        },
+      },
+    },
+  },
 };
 
 const testTrack: ITrack = {
@@ -179,7 +134,7 @@ const testTrack: ITrack = {
           pageSize: 100,
           filters: {
             mediaTypeFilter: {
-              mediaTypes: [GooglePhotosMediaType.Video],
+              mediaTypes: ['VIDEO'],
             },
           },
         },
@@ -221,17 +176,13 @@ function sendDanceDigestEmail() {
 }
 
 function downloadYoutubeUploadsDetails() {
-  const videos = _getYoutubePlaylistItemsVideos({
-    list: {
-      part: 'snippet',
-      optionalArgs: {
-        playlistId: _getYoutubeUploadsPlaylistId(),
-        maxResults: 25,
-      },
-    },
-  });
+  const videos = _getYoutubePlaylistItemsVideos(
+    selectYoutubeUploadsPlaylistItems
+  );
   SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(youtubeUploadsSheetId, videos.length))
+    .getRange(
+      _getSheetRange(apiConfig.spreadsheet.youtubeUploadsSheetId, videos.length)
+    )
     .setValues(
       videos.map(video => [
         video.id,
@@ -243,17 +194,11 @@ function downloadYoutubeUploadsDetails() {
 }
 
 function uploadYoutubeUploadsDetails() {
-  const videos = _getYoutubePlaylistItemsVideos({
-    list: {
-      part: 'snippet',
-      optionalArgs: {
-        playlistId: _getYoutubeUploadsPlaylistId(),
-        maxResults: 25,
-      },
-    },
-  });
+  const videos = _getYoutubePlaylistItemsVideos(
+    selectYoutubeUploadsPlaylistItems
+  );
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(youtubeUploadsSheetId))
+    .getRange(_getSheetRange(apiConfig.spreadsheet.youtubeUploadsSheetId))
     .getValues()
     .filter(row => row[0]);
 
@@ -281,20 +226,11 @@ function uploadYoutubeUploadsDetails() {
 }
 
 function downloadGooglePhotosDetails() {
-  const videos = _getGooglePhotosVideos({
-    mediaItems: {
-      search: {
-        pageSize: 100,
-        filters: {
-          mediaTypeFilter: {
-            mediaTypes: [GooglePhotosMediaType.Video],
-          },
-        },
-      },
-    },
-  });
+  const videos = _getGooglePhotosVideos(selectGooglePhotosUploads);
   SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(googlePhotosSheetId, videos.length))
+    .getRange(
+      _getSheetRange(apiConfig.spreadsheet.googlePhotosSheetId, videos.length)
+    )
     .setValues(
       videos.map(video => [
         video.id,
@@ -306,20 +242,9 @@ function downloadGooglePhotosDetails() {
 }
 
 function uploadGooglePhotosDetails() {
-  const videos = _getGooglePhotosVideos({
-    mediaItems: {
-      search: {
-        pageSize: 100,
-        filters: {
-          mediaTypeFilter: {
-            mediaTypes: [GooglePhotosMediaType.Video],
-          },
-        },
-      },
-    },
-  });
+  const videos = _getGooglePhotosVideos(selectGooglePhotosUploads);
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(googlePhotosSheetId))
+    .getRange(_getSheetRange(apiConfig.spreadsheet.googlePhotosSheetId))
     .getValues()
     .filter(row => row[0]);
 
@@ -366,13 +291,16 @@ function addMenu() {
   menu.addItem('Download Youtube details', 'downloadYoutubeDetails');
   menu.addItem('Upload Youtube details', 'uploadYoutubeDetails');
   menu.addItem('Download Google Photos details', 'downloadGooglePhotosDetails');
-  menu.addItem('Upload Google Photos details', 'uploadGooglePhotosDetails');
+  menu.addItem(
+    'Upload Google Photos details (#FIXME)',
+    'uploadGooglePhotosDetails'
+  );
   menu.addToUi();
 }
 
 function _getUsers(): IUser[] {
   const userValues = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(usersSheetId))
+    .getRange(_getSheetRange(apiConfig.spreadsheet.usersSheetId))
     .getValues()
     .filter(row => row[0]);
   const users: IUser[] = [];
@@ -388,6 +316,7 @@ function _getUsers(): IUser[] {
 function _getSections(user: IUser) {
   const sections: ISection[] = [];
   for (const track of user.tracks) {
+    //TODO implement scheduling
     const {name, schedule} = track;
     sections.push({
       name,
@@ -484,12 +413,59 @@ function _getYoutubePlaylistItemsVideos(
   return _getYoutubeVideos(selectYoutubeVideos);
 }
 
+function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
+  const {part, optionalArgs} = youtubeVideos.list;
+  const videos: IVideo[] = [];
+  const responses: YouTube.Schema.VideoListResponse[] = [];
+  const chunkSize = 50;
+  const videoIds = optionalArgs.id.split(',');
+  for (let i = 0; i < videoIds.length; i += chunkSize) {
+    const vIds = videoIds.slice(i, i + chunkSize);
+    responses.push(
+      YouTube.Videos.list(part, {
+        id: vIds.join(','),
+      })
+    );
+  }
+  const uploadsIdCellMap = _createIdCellMap(
+    apiConfig.spreadsheet.youtubeUploadsSheetId
+  );
+  const lessonsIdCellMap = _createIdCellMap(
+    apiConfig.spreadsheet.lessonsSheetId
+  );
+  for (const response of responses) {
+    videos.push(
+      ...response.items.map(item => {
+        return {
+          id: item.id,
+          tags: item.snippet.tags,
+          title: item.snippet.title,
+          url: _getYoutubeVideoUrl(item.id),
+          pointer: uploadsIdCellMap[item.id]
+            ? _getSpreadSheetUrl(
+                apiConfig.spreadsheet.youtubeUploadsSheetId,
+                uploadsIdCellMap[item.id]
+              )
+            : lessonsIdCellMap[item.id]
+            ? _getSpreadSheetUrl(
+                apiConfig.spreadsheet.lessonsSheetId,
+                lessonsIdCellMap[item.id]
+              )
+            : undefined,
+        };
+      })
+    );
+  }
+  return videos;
+}
+
 function _getGooglePhotosVideos(
   selectGooglePhotos: ISelectGooglePhotos
 ): IVideo[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
   const {search} = selectGooglePhotos.mediaItems;
+
   if (search) {
     const mediaItemsSearchUrl =
       'https://photoslibrary.googleapis.com/v1/mediaItems:search';
@@ -526,7 +502,7 @@ function _getGooglePhotosVideos(
 function _getLessons(tagExpression?: string): IVideo[] {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const lessonValues = spreadsheet
-    .getRange(_getSheetRange(lessonsSheetId))
+    .getRange(_getSheetRange(apiConfig.spreadsheet.lessonsSheetId))
     .getValues()
     .filter(row => row[0]);
   const lessons: ILesson[] = [];
@@ -556,13 +532,16 @@ function _getLessons(tagExpression?: string): IVideo[] {
     lesson => !videos.find(video => video.id === lesson.id)
   );
   if (lessonsNotFoundOnYoutube.length > 0) {
-    const idCellMap = _createIdCellMap(lessonsSheetId);
+    const idCellMap = _createIdCellMap(apiConfig.spreadsheet.lessonsSheetId);
     for (const lesson of lessonsNotFoundOnYoutube) {
       videos.push({
         ...lesson,
         tags: [],
         pointer: idCellMap[lesson.id]
-          ? _getSpreadSheetUrl(lessonsSheetId, idCellMap[lesson.id])
+          ? _getSpreadSheetUrl(
+              apiConfig.spreadsheet.lessonsSheetId,
+              idCellMap[lesson.id]
+            )
           : undefined,
       });
     }
@@ -602,48 +581,11 @@ function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
   );
 }
 
-function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
-  const {part, optionalArgs} = youtubeVideos.list;
-  const videos: IVideo[] = [];
-  const responses: YouTube.Schema.VideoListResponse[] = [];
-  const chunkSize = 50;
-  const videoIds = optionalArgs.id.split(',');
-  for (let i = 0; i < videoIds.length; i += chunkSize) {
-    const vIds = videoIds.slice(i, i + chunkSize);
-    responses.push(
-      YouTube.Videos.list(part, {
-        id: vIds.join(','),
-      })
-    );
-  }
-  const uploadsIdCellMap = _createIdCellMap(youtubeUploadsSheetId);
-  const lessonsIdCellMap = _createIdCellMap(lessonsSheetId);
-  for (const response of responses) {
-    videos.push(
-      ...response.items.map(item => {
-        return {
-          id: item.id,
-          tags: item.snippet.tags,
-          title: item.snippet.title,
-          url: _getYoutubeVideoUrl(item.id),
-          pointer: uploadsIdCellMap[item.id]
-            ? _getSpreadSheetUrl(
-                youtubeUploadsSheetId,
-                uploadsIdCellMap[item.id]
-              )
-            : lessonsIdCellMap[item.id]
-            ? _getSpreadSheetUrl(lessonsSheetId, lessonsIdCellMap[item.id])
-            : undefined,
-        };
-      })
-    );
-  }
-  return videos;
-}
-
 function _sendEmail(user: IUser, sections: ISection[]): void {
   if (sections.length > 0) {
-    const template = HtmlService.createTemplateFromFile(emailTemplateName);
+    const template = HtmlService.createTemplateFromFile(
+      apiConfig.email.templateName
+    );
     template.sections = sections;
     GmailApp.sendEmail(user.email, _getEmailSubject(user), '', {
       htmlBody: template.evaluate().getContent(),
@@ -680,11 +622,11 @@ function _getYoutubeUploadsPlaylistId(): string {
 }
 
 function _getEmailSubject(user: IUser): string {
-  return `${emailSubject}: ${user.tracks.map(track => track.name).join(', ')}`;
+  return `${apiConfig.email.subject}: ${user.tracks
+    .map(track => track.name)
+    .join(', ')}`;
 }
-function _getRandomInt(max: number) {
-  return Math.floor(Math.random() * max);
-}
+
 function _shuffle([...arr]) {
   let m = arr.length;
   while (m) {
@@ -710,12 +652,12 @@ function _createIdCellMap(sheetId: string) {
   return idCellMap;
 }
 
-const youtubeUrl = 'https://www.youtube.com/watch?v=';
-const _getYoutubeVideoUrl = (videoId: string) => youtubeUrl + videoId;
+const _getYoutubeVideoUrl = (videoId: string) =>
+  'https://www.youtube.com/watch?v=' + videoId;
 const _getSpreadSheetUrl = (sheetId: string, range?: string) =>
-  `https://docs.google.com/spreadsheets/d/${activeSpreadSheetId}/edit#gid=${sheetId}${
-    range ? `&range=${range}` : ''
-  }`;
+  `https://docs.google.com/spreadsheets/d/${
+    apiConfig.spreadsheet.activeSpreadSheetId
+  }/edit#gid=${sheetId}${range ? `&range=${range}` : ''}`;
 const _getSheetRange = (sheetId: string, count?: number) =>
   `${sheetIdNameMap[sheetId]}!A2:D${count ? count + 1 : ''}`;
 
@@ -798,6 +740,84 @@ interface ISelectYoutubeChannels {
   playlistIds?: string[];
   query?: string;
   videoIds?: string[];
+}
+
+// https://developers.google.com/photos/library/reference/rest/v1/mediaItems/search
+interface ISelectGooglePhotosMediaItems {
+  search: {
+    albumId?: string;
+    pageSize?: number;
+    pageToken?: string;
+    filters?: {
+      dateFilter?: {
+        dates?: IGooglePhotosDate[];
+        ranges?: {
+          startDate?: IGooglePhotosDate;
+          endDate?: IGooglePhotosDate;
+        }[];
+      };
+      contentFilter?: {
+        includedContentCategories?: GooglePhotosContentCategory[];
+        excludedContentCategories?: GooglePhotosContentCategory[];
+      };
+      mediaTypeFilter?: {
+        mediaTypes: GooglePhotosMediaType[];
+      };
+      featureFilter?: {
+        includedFeatures: GooglePhotosFeature[];
+      };
+      includeArchivedMedia?: boolean;
+      excludeNonAppCreatedData?: boolean;
+    };
+    orderBy?: string;
+  };
+  //TODO implement list, get, batchGet apis (GET)
+  list?: any;
+  get?: any;
+  batchGet?: any;
+}
+
+interface IGooglePhotosDate {
+  year: number;
+  month: number;
+  day: number;
+}
+
+enum GooglePhotosContentCategory {
+  None = 'NONE',
+  Landscapes = 'LANDSCAPES',
+  Receipts = 'RECEIPTS',
+  Cityscapes = 'CITYSCAPES',
+  Landmarks = 'LANDMARKS',
+  Selfies = 'SELFIES',
+  People = 'PEOPLE',
+  Pets = 'PETS',
+  Weddings = 'WEDDINGS',
+  Birthdays = 'BIRTHDAYS',
+  Documents = 'DOCUMENTS',
+  Travel = 'TRAVEL',
+  Animals = 'ANIMALS',
+  Food = 'FOOD',
+  Sports = 'SPORTS',
+  Night = 'NIGHT',
+  Performances = 'PERFORMANCES',
+  Whiteboards = 'WHITEBOARDS',
+  Screenshots = 'SCREENSHOTS',
+  Utility = 'UTILITY',
+  Arts = 'ARTS',
+  Crafts = 'CRAFTS',
+  Fashion = 'FASHION',
+  Houses = 'HOUSES',
+  Gardens = 'GARDENS',
+  Flowers = 'FLOWERS',
+  Holidays = 'HOLIDAYS',
+}
+
+type GooglePhotosMediaType = 'ALL_MEDIA' | 'VIDEO' | 'PHOTO';
+
+enum GooglePhotosFeature {
+  None = 'NONE',
+  Favorites = 'FAVORITES',
 }
 
 // https://developers.google.com/photos/library/reference/rest/v1/mediaItems
