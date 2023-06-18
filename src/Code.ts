@@ -8,25 +8,33 @@ interface ISection {
   name: string;
   videos: IVideo[];
 }
-interface IVideo {
+interface IVideo extends IVideoBase {
+  pointer?: string;
+  custom?: {
+    tags?: string[];
+    title?: string;
+    url?: string;
+    pointer?: string;
+  };
+}
+interface IVideoBase {
   id: string;
   tags: string[];
   title: string;
   url: string;
-  pointer?: string;
-  customTags?: string[];
 }
 interface ITrack {
   name: string;
-  schedule?: string;
   select: ITrackSelect;
   filter?: ITrackFilter;
   sort?: ITrackSort;
   limit?: ITrackLimit;
+  schedule?: string;
 }
 interface ITrackSelect {
   youtube?: ISelectYoutube;
   googlePhotos?: ISelectGooglePhotos;
+  vimeo?: ISelectVimeo;
 }
 interface ITrackFilter {
   tagExpression?: string;
@@ -48,12 +56,8 @@ interface ISelectGooglePhotos {
   albums?: any;
   sharedAlbums?: any;
 }
-//TODO refactor lessons to use ISelectYoutubeVideos
-interface ILesson {
-  id: string;
-  customTags: string[];
-  url: string;
-  title: string;
+interface ISelectVimeo {
+  videoIds: string[];
 }
 
 enum SortBy {
@@ -71,7 +75,7 @@ const apiConfig = {
     activeSpreadSheetId: '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E',
     usersSheetId: '1345088339',
     youtubeUploadsSheetId: '1190338372',
-    lessonsSheetId: '472806840',
+    customSheetId: '472806840',
     googlePhotosSheetId: '1878936212',
   },
 };
@@ -79,8 +83,9 @@ const apiConfig = {
 const sheetIdNameMap: {[sheetId: string]: string} = {
   [apiConfig.spreadsheet.usersSheetId]: 'users',
   [apiConfig.spreadsheet.youtubeUploadsSheetId]: 'youtubeUploads',
-  [apiConfig.spreadsheet.lessonsSheetId]: 'lessons',
   [apiConfig.spreadsheet.googlePhotosSheetId]: 'googlePhotos',
+  //TODO rename sheet in config spreadsheet when deploying
+  [apiConfig.spreadsheet.customSheetId]: 'custom',
 };
 
 const selectYoutubeUploadsPlaylistItems: ISelectYoutubePlaylistItems = {
@@ -338,12 +343,14 @@ function _getVideos(track: ITrack): IVideo[] {
   if (limit) {
     videos = _limitVideos(videos, limit);
   }
+  videos = _addCustomData(videos);
+
   return videos;
 }
 
 function _selectVideos(select: ITrackSelect): IVideo[] {
   const selectedVideos: IVideo[] = [];
-  const {youtube, googlePhotos} = select;
+  const {youtube, googlePhotos, vimeo} = select;
   if (youtube) {
     const {playlistItems, videos} = youtube;
     if (playlistItems) {
@@ -355,6 +362,9 @@ function _selectVideos(select: ITrackSelect): IVideo[] {
   }
   if (googlePhotos) {
     selectedVideos.push(..._getGooglePhotosVideos(googlePhotos));
+  }
+  if (vimeo) {
+    selectedVideos.push(..._getVimeoVideos(vimeo));
   }
   return selectedVideos;
 }
@@ -378,6 +388,31 @@ function _sortVideos(videos: IVideo[], sort: ITrackSort): IVideo[] {
 
 function _limitVideos(videos: IVideo[], limit: ITrackLimit): IVideo[] {
   return videos.slice(limit.offset ? limit.offset : 0, limit.count);
+}
+
+function _addCustomData(videos: IVideo[]): IVideo[] {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const customValues = spreadsheet
+    .getRange(_getSheetRange(apiConfig.spreadsheet.customSheetId))
+    .getValues()
+    .filter(row => row[0]);
+  const customVideos: IVideoBase[] = [];
+  for (const customValue of customValues) {
+    customVideos.push({
+      id: customValue[0],
+      tags: customValue[1].split(',').map((tag: string) => tag.trim()),
+      url: customValue[2],
+      title: customValue[3],
+    });
+  }
+  return videos.map(video => {
+    const customVideo = customVideos.find(custom => custom.id === video.id);
+    if (customVideo) {
+      delete customVideo.id;
+      video.custom = {...customVideo};
+    }
+    return video;
+  });
 }
 
 function _getYoutubePlaylistItemsVideos(
@@ -430,9 +465,7 @@ function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
   const uploadsIdCellMap = _createIdCellMap(
     apiConfig.spreadsheet.youtubeUploadsSheetId
   );
-  const lessonsIdCellMap = _createIdCellMap(
-    apiConfig.spreadsheet.lessonsSheetId
-  );
+  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.customSheetId);
   for (const response of responses) {
     videos.push(
       ...response.items.map(item => {
@@ -446,10 +479,10 @@ function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
                 apiConfig.spreadsheet.youtubeUploadsSheetId,
                 uploadsIdCellMap[item.id]
               )
-            : lessonsIdCellMap[item.id]
+            : customIdCellMap[item.id]
             ? _getSpreadSheetUrl(
-                apiConfig.spreadsheet.lessonsSheetId,
-                lessonsIdCellMap[item.id]
+                apiConfig.spreadsheet.customSheetId,
+                customIdCellMap[item.id]
               )
             : undefined,
         };
@@ -498,57 +531,17 @@ function _getGooglePhotosVideos(
   });
 }
 
-//TODO refactor lessons to "custom tagging" and merge into youtube uploads
-function _getLessons(tagExpression?: string): IVideo[] {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const lessonValues = spreadsheet
-    .getRange(_getSheetRange(apiConfig.spreadsheet.lessonsSheetId))
-    .getValues()
-    .filter(row => row[0]);
-  const lessons: ILesson[] = [];
-  for (const lessonValue of lessonValues) {
-    lessons.push({
-      id: lessonValue[0],
-      customTags: lessonValue[1].split(',').map((tag: string) => tag.trim()),
-      url: lessonValue[2],
-      title: lessonValue[3],
-    });
-  }
-  const selectYoutubeVideos: ISelectYoutubeVideos = {
-    list: {
-      part: 'snippet',
-      optionalArgs: {
-        id: lessons.map(lesson => lesson.id).join(','),
-      },
-    },
-  };
-  const videos = _getYoutubeVideos(selectYoutubeVideos).map(video => {
-    video.customTags = lessons.find(
-      lesson => lesson.id === video.id
-    ).customTags;
-    return video;
+function _getVimeoVideos(selectVimeo: ISelectVimeo): IVideo[] {
+  //TODO connect to vimeo API
+  const {videoIds} = selectVimeo;
+  return videoIds.map(id => {
+    return {
+      id,
+      tags: [],
+      title: '',
+      url: _getVimeoVideoUrl(id),
+    };
   });
-  const lessonsNotFoundOnYoutube = lessons.filter(
-    lesson => !videos.find(video => video.id === lesson.id)
-  );
-  if (lessonsNotFoundOnYoutube.length > 0) {
-    const idCellMap = _createIdCellMap(apiConfig.spreadsheet.lessonsSheetId);
-    for (const lesson of lessonsNotFoundOnYoutube) {
-      videos.push({
-        ...lesson,
-        tags: [],
-        pointer: idCellMap[lesson.id]
-          ? _getSpreadSheetUrl(
-              apiConfig.spreadsheet.lessonsSheetId,
-              idCellMap[lesson.id]
-            )
-          : undefined,
-      });
-    }
-  }
-  return tagExpression
-    ? _filterVideosByTagExpression(videos, tagExpression)
-    : videos;
 }
 
 function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
@@ -564,16 +557,16 @@ function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
       }
       return tags.every((tag, index) => {
         if (operations[index] === '*') {
-          return video.customTags
-            ? video.customTags.includes(tag)
+          return video.custom.tags
+            ? video.custom.tags.includes(tag)
             : video.tags.includes(tag);
         } else if (operations[index] === '/') {
-          return !(video.customTags
-            ? video.customTags.includes(tag)
+          return !(video.custom.tags
+            ? video.custom.tags.includes(tag)
             : video.tags.includes(tag));
         } else {
-          return video.customTags
-            ? video.customTags.includes(tag)
+          return video.custom.tags
+            ? video.custom.tags.includes(tag)
             : video.tags.includes(tag);
         }
       });
@@ -654,6 +647,8 @@ function _createIdCellMap(sheetId: string) {
 
 const _getYoutubeVideoUrl = (videoId: string) =>
   'https://www.youtube.com/watch?v=' + videoId;
+const _getVimeoVideoUrl = (videoId: string) =>
+  'https://player.vimeo.com/video/' + videoId;
 const _getSpreadSheetUrl = (sheetId: string, range?: string) =>
   `https://docs.google.com/spreadsheets/d/${
     apiConfig.spreadsheet.activeSpreadSheetId
