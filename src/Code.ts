@@ -84,8 +84,9 @@ const sheetIdNameMap: {[sheetId: string]: string} = {
   [apiConfig.spreadsheet.usersSheetId]: 'users',
   [apiConfig.spreadsheet.youtubeUploadsSheetId]: 'youtubeUploads',
   [apiConfig.spreadsheet.googlePhotosSheetId]: 'googlePhotos',
-  //TODO rename sheet in config spreadsheet when deploying
-  [apiConfig.spreadsheet.customSheetId]: 'custom',
+  //TODO rename sheet to custom in config spreadsheet when deploying
+  [apiConfig.spreadsheet.customSheetId]: 'lessons',
+  // [apiConfig.spreadsheet.customSheetId]: 'custom',
 };
 
 const selectYoutubeUploadsPlaylistItems: ISelectYoutubePlaylistItems = {
@@ -498,6 +499,10 @@ function _getGooglePhotosVideos(
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
   const {search} = selectGooglePhotos.mediaItems;
+  const googlePhotosIdCellMap = _createIdCellMap(
+    apiConfig.spreadsheet.googlePhotosSheetId
+  );
+  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.customSheetId);
 
   if (search) {
     const mediaItemsSearchUrl =
@@ -527,6 +532,17 @@ function _getGooglePhotosVideos(
         : [],
       title: item.filename,
       url: item.productUrl,
+      pointer: googlePhotosIdCellMap[item.id]
+        ? _getSpreadSheetUrl(
+            apiConfig.spreadsheet.googlePhotosSheetId,
+            googlePhotosIdCellMap[item.id]
+          )
+        : customIdCellMap[item.id]
+        ? _getSpreadSheetUrl(
+            apiConfig.spreadsheet.customSheetId,
+            customIdCellMap[item.id]
+          )
+        : undefined,
     };
   });
 }
@@ -534,12 +550,20 @@ function _getGooglePhotosVideos(
 function _getVimeoVideos(selectVimeo: ISelectVimeo): IVideo[] {
   //TODO connect to vimeo API
   const {videoIds} = selectVimeo;
+  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.customSheetId);
   return videoIds.map(id => {
     return {
       id,
+      //TODO add tags and title from custom sheet
       tags: [],
       title: '',
       url: _getVimeoVideoUrl(id),
+      pointer: customIdCellMap[id]
+        ? _getSpreadSheetUrl(
+            apiConfig.spreadsheet.customSheetId,
+            customIdCellMap[id]
+          )
+        : undefined,
     };
   });
 }
