@@ -29,7 +29,8 @@ interface ITrack {
   filter?: ITrackFilter;
   sort?: ITrackSort;
   limit?: ITrackLimit;
-  schedule?: string;
+  progress?: ITrackProgress;
+  schedule?: ITrackSchedule;
 }
 interface ITrackSelect {
   youtube?: ISelectYoutube;
@@ -45,6 +46,15 @@ interface ITrackSort {
 interface ITrackLimit {
   offset?: number;
   count?: number;
+}
+interface ITrackProgress {
+  current: number;
+  loop?: boolean;
+  isStopped?: boolean;
+}
+interface ITrackSchedule {
+  cron: string;
+  timezone?: string;
 }
 interface ISelectYoutube {
   playlistItems?: ISelectYoutubePlaylistItems;
@@ -155,6 +165,13 @@ const testTrack: ITrack = {
   },
   limit: {
     count: 3,
+  },
+  progress: {
+    current: 0,
+  },
+  schedule: {
+    cron: '0 16 * * *',
+    timezone: 'Europe/Budapest',
   },
 };
 
@@ -323,17 +340,19 @@ function _getSections(user: IUser) {
   const sections: ISection[] = [];
   for (const track of user.tracks) {
     //TODO implement scheduling
-    const {name, schedule} = track;
-    sections.push({
-      name,
-      videos: _getVideos(track),
-    });
+    const {name, schedule, progress} = track;
+    if (!progress.isStopped) {
+      sections.push({
+        name,
+        videos: _getVideos(track),
+      });
+    }
   }
   return sections;
 }
 
 function _getVideos(track: ITrack): IVideo[] {
-  const {select, filter, sort, limit} = track;
+  const {select, filter, sort, limit, progress} = track;
   let videos: IVideo[] = _selectVideos(select);
   if (filter) {
     videos = _filterVideos(videos, filter);
@@ -341,9 +360,7 @@ function _getVideos(track: ITrack): IVideo[] {
   if (sort) {
     videos = _sortVideos(videos, sort);
   }
-  if (limit) {
-    videos = _limitVideos(videos, limit);
-  }
+  videos = _limitVideos(videos, limit, progress);
   videos = _addCustomData(videos);
 
   return videos;
@@ -387,8 +404,28 @@ function _sortVideos(videos: IVideo[], sort: ITrackSort): IVideo[] {
   }
 }
 
-function _limitVideos(videos: IVideo[], limit: ITrackLimit): IVideo[] {
-  return videos.slice(limit.offset ? limit.offset : 0, limit.count);
+function _limitVideos(
+  videos: IVideo[],
+  limit?: ITrackLimit,
+  progress: ITrackProgress = {current: 0, loop: true, isStopped: false}
+): IVideo[] {
+  let next = progress.current + (limit.offset ? limit.offset : 0);
+  const count = limit.count ? limit.count : 1;
+  const nextVideos = videos.slice(next, count);
+  if (nextVideos.length < 1) {
+    if (progress.loop) {
+      progress.current = 0;
+      //TODO save progress
+      next = limit.offset ? limit.offset : 0;
+      return videos.slice(next, count);
+    } else {
+      progress.isStopped = true;
+      return [];
+    }
+  } else {
+    progress.current = next + count;
+    return nextVideos;
+  }
 }
 
 function _addCustomData(videos: IVideo[]): IVideo[] {
