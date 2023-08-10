@@ -188,9 +188,12 @@ function sendDanceDigestEmail() {
     Logger.log(JSON.stringify(users));
 
     for (const user of users) {
-      const sections = _getSections(user);
+      const {sections, tracks} = _getSections(user);
       _sendEmail(user, sections);
+      user.tracks = tracks;
     }
+
+    _saveUsers(users);
   } catch (err: any) {
     Logger.log(
       `sendDanceDigestEmail() API failed with error ${err.toString()}`
@@ -336,19 +339,37 @@ function _getUsers(): IUser[] {
   return users;
 }
 
+function _saveUsers(users: IUser[]): void {
+  SpreadsheetApp.getActiveSpreadsheet()
+    .getRange(_getUsersSheetRange(users.length))
+    .setValues(users.map(user => [user.email, JSON.stringify(user.tracks)]));
+}
+
 function _getSections(user: IUser) {
   const sections: ISection[] = [];
-  for (const track of user.tracks) {
+  for (const trackIndex in user.tracks) {
     //TODO implement scheduling
-    const {name, schedule, progress} = track;
+    const track = user.tracks[trackIndex];
+    const {name, schedule, progress, limit} = track;
     if (!progress.isStopped) {
+      const videos = _getVideos(track);
       sections.push({
         name,
-        videos: _getVideos(track),
+        videos,
       });
+      let offset = progress.current + (limit.offset ? limit.offset : 0);
+      const count = limit.count ? limit.count : 1;
+      if (videos.length < 1) {
+        if (progress.loop) {
+          offset = limit.offset ? limit.offset : 0;
+        } else {
+          progress.isStopped = true;
+        }
+      }
+      user.tracks[trackIndex].progress.current = offset + count;
     }
   }
-  return sections;
+  return {sections, tracks: user.tracks};
 }
 
 function _getVideos(track: ITrack): IVideo[] {
@@ -409,23 +430,18 @@ function _limitVideos(
   limit?: ITrackLimit,
   progress: ITrackProgress = {current: 0, loop: true, isStopped: false}
 ): IVideo[] {
-  let next = progress.current + (limit.offset ? limit.offset : 0);
+  let offset = progress.current + (limit.offset ? limit.offset : 0);
   const count = limit.count ? limit.count : 1;
-  const nextVideos = videos.slice(next, count);
+  let nextVideos = videos.slice(offset, count);
   if (nextVideos.length < 1) {
     if (progress.loop) {
-      progress.current = 0;
-      //TODO save progress
-      next = limit.offset ? limit.offset : 0;
-      return videos.slice(next, count);
+      offset = limit.offset ? limit.offset : 0;
+      nextVideos = videos.slice(offset, count);
     } else {
-      progress.isStopped = true;
-      return [];
+      nextVideos = [];
     }
-  } else {
-    progress.current = next + count;
-    return nextVideos;
   }
+  return nextVideos;
 }
 
 function _addCustomData(videos: IVideo[]): IVideo[] {
@@ -716,6 +732,10 @@ const _getSpreadSheetUrl = (sheetId: string, range?: string) =>
   }/edit#gid=${sheetId}${range ? `&range=${range}` : ''}`;
 const _getSheetRange = (sheetId: string, count?: number) =>
   `${sheetIdNameMap[sheetId]}!A2:D${count ? count + 1 : ''}`;
+const _getUsersSheetRange = (count?: number) =>
+  `${sheetIdNameMap[apiConfig.spreadsheet.usersSheetId]}!A2:B${
+    count ? count + 1 : ''
+  }`;
 
 // https://developers.google.com/youtube/v3/docs/playlistItems/list
 interface ISelectYoutubePlaylistItems {
