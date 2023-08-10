@@ -83,20 +83,18 @@ const apiConfig = {
   },
   spreadsheet: {
     activeSpreadSheetId: '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E',
-    usersSheetId: '1345088339',
+    usersSheetId: '1668639876',
     youtubeUploadsSheetId: '1190338372',
-    customSheetId: '472806840',
+    customSheetId: '87232840',
     googlePhotosSheetId: '1878936212',
   },
 };
 
 const sheetIdNameMap: {[sheetId: string]: string} = {
-  [apiConfig.spreadsheet.usersSheetId]: 'users',
+  [apiConfig.spreadsheet.usersSheetId]: 'usersV2',
   [apiConfig.spreadsheet.youtubeUploadsSheetId]: 'youtubeUploads',
   [apiConfig.spreadsheet.googlePhotosSheetId]: 'googlePhotos',
-  //TODO rename sheet to custom in config spreadsheet when deploying
-  [apiConfig.spreadsheet.customSheetId]: 'lessons',
-  // [apiConfig.spreadsheet.customSheetId]: 'custom',
+  [apiConfig.spreadsheet.customSheetId]: 'custom',
 };
 
 const selectYoutubeUploadsPlaylistItems: ISelectYoutubePlaylistItems = {
@@ -176,6 +174,7 @@ const testTrack: ITrack = {
 };
 
 const test = () => {
+  Logger.log(`youtube uploads playlist id: ${_getYoutubeUploadsPlaylistId()}`);
   const results = _getVideos(testTrack);
   results.forEach(result => {
     Logger.log(JSON.stringify(result));
@@ -375,6 +374,7 @@ function _getSections(user: IUser) {
 function _getVideos(track: ITrack): IVideo[] {
   const {select, filter, sort, limit, progress} = track;
   let videos: IVideo[] = _selectVideos(select);
+  videos = _addCustomData(videos);
   if (filter) {
     videos = _filterVideos(videos, filter);
   }
@@ -382,7 +382,6 @@ function _getVideos(track: ITrack): IVideo[] {
     videos = _sortVideos(videos, sort);
   }
   videos = _limitVideos(videos, limit, progress);
-  videos = _addCustomData(videos);
 
   return videos;
 }
@@ -634,15 +633,15 @@ function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
       }
       return tags.every((tag, index) => {
         if (operations[index] === '*') {
-          return video.custom.tags
+          return video.custom && video.custom.tags
             ? video.custom.tags.includes(tag)
             : video.tags.includes(tag);
         } else if (operations[index] === '/') {
-          return !(video.custom.tags
+          return !(video.custom && video.custom.tags
             ? video.custom.tags.includes(tag)
             : video.tags.includes(tag));
         } else {
-          return video.custom.tags
+          return video.custom && video.custom.tags
             ? video.custom.tags.includes(tag)
             : video.tags.includes(tag);
         }
