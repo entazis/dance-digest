@@ -84,17 +84,17 @@ const apiConfig = {
   spreadsheet: {
     activeSpreadSheetId: '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E',
     usersSheetId: '1668639876',
-    youtubeUploadsSheetId: '1190338372',
     customSheetId: '87232840',
+    youtubeUploadsSheetId: '1190338372',
     googlePhotosSheetId: '1878936212',
   },
 };
 
 const sheetIdNameMap: {[sheetId: string]: string} = {
-  [apiConfig.spreadsheet.usersSheetId]: 'usersV2',
+  [apiConfig.spreadsheet.usersSheetId]: 'users',
+  [apiConfig.spreadsheet.customSheetId]: 'custom',
   [apiConfig.spreadsheet.youtubeUploadsSheetId]: 'youtubeUploads',
   [apiConfig.spreadsheet.googlePhotosSheetId]: 'googlePhotos',
-  [apiConfig.spreadsheet.customSheetId]: 'custom',
 };
 
 const selectYoutubeUploadsPlaylistItems: ISelectYoutubePlaylistItems = {
