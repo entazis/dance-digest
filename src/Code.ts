@@ -431,7 +431,7 @@ function _limitVideos(
 ): IVideo[] {
   let offset = progress.current + (limit.offset ? limit.offset : 0);
   const count = limit.count ? limit.count : 1;
-  let nextVideos = videos.slice(offset, count);
+  let nextVideos = videos.slice(offset, offset + count);
   if (nextVideos.length < 1) {
     if (progress.loop) {
       offset = limit.offset ? limit.offset : 0;
