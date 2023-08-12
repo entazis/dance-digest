@@ -71,6 +71,7 @@ interface ISelectVimeo {
 }
 
 enum SortBy {
+  None = 'none',
   Title = 'title',
   Date = 'date',
   Random = 'random',
@@ -424,10 +425,17 @@ function _filterVideos(videos: IVideo[], filter: ITrackFilter): IVideo[] {
 
 function _sortVideos(videos: IVideo[], sort: ITrackSort): IVideo[] {
   switch (sort.by) {
+    case SortBy.None:
+      return videos;
+    //TODO implement sorting methods
+    // case SortBy.Title:
+    //     return videos.sort((a, b) => a.title.localeCompare(b.title));
+    // case SortBy.Date:
+    //     return videos.sort((a, b) => a.date.localeCompare(b.date));
     case SortBy.Random:
       return _shuffle(videos);
     default:
-      throw new Error(`unknown sort by: ${sort.by}`);
+      throw new Error(`sort is not supported by ${sort.by}`);
   }
 }
 
