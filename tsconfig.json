@@ -1,17 +1,18 @@
 {
   "compilerOptions": {
     "experimentalDecorators": true,
-    //"isolatedModules": true, // cannot be changes
+    //"isolatedModules": true, // cannot be changed
     "lib": ["es5","esnext"],
-    //"module": "None", // cannot be changes
+    //"module": "None", // cannot be changed
     //"noImplicitUseStrict": true,
-    //"noLib": true, // cannot be changes
-    //"noResolve": true, // cannot be changes
+    //"noLib": true, // cannot be changed
+    //"noResolve": true, // cannot be changed
     "outDir": "build",
     "skipLibCheck": true,
     "strict": true,
     "strictNullChecks": false,
     "target": "ES2019",
-    "types": ["google-apps-script"]
+    "types": ["google-apps-script", "node"],
+    "moduleResolution": "node"
   }
 }
