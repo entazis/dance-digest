@@ -350,22 +350,29 @@ function _getSections(user: IUser) {
     //TODO implement scheduling
     const track = user.tracks[trackIndex];
     const {name, schedule, progress, limit} = track;
-    if (!progress.isStopped) {
-      const videos = _getVideos(track);
-      let current = progress.current + (limit.offset ? limit.offset : 0);
-      if (videos.length < 1) {
-        if (progress.loop) {
-          current = limit.offset ? limit.offset : 0;
+    const videos = _getVideos(track);
+    if (progress) {
+      if (!progress.isStopped) {
+        let current = progress.current + (limit.offset ? limit.offset : 0);
+        if (videos.length < 1) {
+          if (progress.loop) {
+            current = limit.offset ? limit.offset : 0;
+          } else {
+            progress.isStopped = true;
+          }
         } else {
-          progress.isStopped = true;
+          sections.push({
+            name,
+            videos,
+          });
         }
-      } else {
-        sections.push({
-          name,
-          videos,
-        });
+        user.tracks[trackIndex].progress.current = current + videos.length;
       }
-      user.tracks[trackIndex].progress.current = current + videos.length;
+    } else {
+      sections.push({
+        name,
+        videos,
+      });
     }
   }
   return {sections, tracks: user.tracks};
