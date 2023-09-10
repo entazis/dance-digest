@@ -92,7 +92,7 @@ const apiConfig = {
 };
 
 const sheetIdNameMap: {[sheetId: string]: string} = {
-  [apiConfig.spreadsheet.usersSheetId]: 'users',
+  [apiConfig.spreadsheet.usersSheetId]: 'usersV2',
   [apiConfig.spreadsheet.customSheetId]: 'custom',
   [apiConfig.spreadsheet.youtubeUploadsSheetId]: 'youtubeUploads',
   [apiConfig.spreadsheet.googlePhotosSheetId]: 'googlePhotos',
