@@ -121,6 +121,12 @@ const selectGooglePhotosUploads: ISelectGooglePhotos = {
   },
 };
 
+const progressDefault: ITrackProgress = {
+  current: 0,
+  loop: true,
+  isStopped: false,
+};
+
 const testTrack: ITrack = {
   name: 'Practice Bachata',
   select: {
@@ -167,6 +173,8 @@ const testTrack: ITrack = {
   },
   progress: {
     current: 0,
+    loop: true,
+    isStopped: false,
   },
   schedule: {
     cron: '0 16 * * *',
@@ -348,32 +356,28 @@ function _saveUsers(users: IUser[]): void {
 function _getSections(user: IUser) {
   const sections: ISection[] = [];
   for (const trackIndex in user.tracks) {
-    //TODO implement scheduling
+    if (!user.tracks[trackIndex].progress) {
+      user.tracks[trackIndex].progress = progressDefault;
+    }
     const track = user.tracks[trackIndex];
+    //TODO implement scheduling
     const {name, schedule, progress, limit} = track;
     const videos = _getVideos(track);
-    if (progress) {
-      if (!progress.isStopped) {
-        let current = progress.current + (limit.offset ? limit.offset : 0);
-        if (videos.length < 1) {
-          if (progress.loop) {
-            current = limit.offset ? limit.offset : 0;
-          } else {
-            progress.isStopped = true;
-          }
+    if (!progress.isStopped) {
+      let current = progress.current + (limit.offset ? limit.offset : 0);
+      if (videos.length < 1) {
+        if (progress.loop) {
+          current = limit.offset ? limit.offset : 0;
         } else {
-          sections.push({
-            name,
-            videos,
-          });
+          progress.isStopped = true;
         }
-        user.tracks[trackIndex].progress.current = current + videos.length;
+      } else {
+        sections.push({
+          name,
+          videos,
+        });
       }
-    } else {
-      sections.push({
-        name,
-        videos,
-      });
+      user.tracks[trackIndex].progress.current = current + videos.length;
     }
   }
   return {sections, tracks: user.tracks};
