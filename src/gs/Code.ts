@@ -191,22 +191,16 @@ const test = () => {
 };
 
 function sendDanceDigestEmail() {
-  try {
-    const users = _getUsers();
-    Logger.log(JSON.stringify(users));
+  const users = _getUsers();
+  Logger.log(JSON.stringify(users));
 
-    for (const user of users) {
-      const {sections, tracks} = _getSections(user);
-      _sendEmail(user, sections);
-      user.tracks = tracks;
-    }
-
-    _saveUsers(users);
-  } catch (err: any) {
-    Logger.log(
-      `sendDanceDigestEmail() API failed with error ${err.toString()}`
-    );
+  for (const user of users) {
+    const {sections, tracks} = _getSections(user);
+    _sendEmail(user, sections);
+    user.tracks = tracks;
   }
+
+  _saveUsers(users);
 }
 
 function downloadYoutubeUploadsDetails() {
