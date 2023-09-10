@@ -102,7 +102,7 @@ const selectYoutubeUploadsPlaylistItems: ISelectYoutubePlaylistItems = {
   list: {
     part: 'snippet',
     optionalArgs: {
-      playlistId: _getYoutubeUploadsPlaylistId(),
+      playlistId: 'UUN2l886RuTZAHGkhpngCWuw',
       maxResults: 25,
     },
   },
@@ -135,7 +135,7 @@ const testTrack: ITrack = {
         list: {
           part: 'snippet',
           optionalArgs: {
-            playlistId: _getYoutubeUploadsPlaylistId(),
+            playlistId: 'UUN2l886RuTZAHGkhpngCWuw',
             maxResults: 25,
           },
         },
