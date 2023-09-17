@@ -560,10 +560,6 @@ function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
       })
     );
   }
-  const uploadsIdCellMap = _createIdCellMap(
-    apiConfig.spreadsheet.youtubeUploads.name
-  );
-  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.custom.name);
   for (const response of responses) {
     videos.push(
       ...response.items.map(item => {
@@ -572,17 +568,11 @@ function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
           tags: item.snippet.tags,
           title: item.snippet.title,
           url: _getYoutubeVideoUrl(item.id),
-          pointer: uploadsIdCellMap[item.id]
-            ? _getSpreadSheetUrl(
-                apiConfig.spreadsheet.youtubeUploads.id,
-                uploadsIdCellMap[item.id]
-              )
-            : customIdCellMap[item.id]
-            ? _getSpreadSheetUrl(
-                apiConfig.spreadsheet.custom.id,
-                customIdCellMap[item.id]
-              )
-            : undefined,
+          pointer: getPointer(
+            item.id,
+            apiConfig.spreadsheet.youtubeUploads.id,
+            apiConfig.spreadsheet.youtubeUploads.name
+          ),
         };
       })
     );
@@ -596,10 +586,6 @@ function _getGooglePhotosVideos(
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
   const {search} = selectGooglePhotos.mediaItems;
-  const googlePhotosIdCellMap = _createIdCellMap(
-    apiConfig.spreadsheet.googlePhotos.name
-  );
-  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.custom.name);
 
   if (search) {
     const mediaItemsSearchUrl =
@@ -629,18 +615,11 @@ function _getGooglePhotosVideos(
         : [],
       title: item.filename,
       url: item.productUrl,
-      //TODO extract get pointer function
-      pointer: googlePhotosIdCellMap[item.id]
-        ? _getSpreadSheetUrl(
-            apiConfig.spreadsheet.googlePhotos.id,
-            googlePhotosIdCellMap[item.id]
-          )
-        : customIdCellMap[item.id]
-        ? _getSpreadSheetUrl(
-            apiConfig.spreadsheet.custom.id,
-            customIdCellMap[item.id]
-          )
-        : undefined,
+      pointer: getPointer(
+        item.id,
+        apiConfig.spreadsheet.googlePhotos.id,
+        apiConfig.spreadsheet.googlePhotos.name
+      ),
     };
   });
 }
@@ -648,7 +627,6 @@ function _getGooglePhotosVideos(
 function _getVimeoVideos(selectVimeo: ISelectVimeo): IVideo[] {
   //TODO connect to vimeo API
   const {videoIds} = selectVimeo;
-  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.custom.name);
   return videoIds.map(id => {
     return {
       id,
@@ -656,12 +634,11 @@ function _getVimeoVideos(selectVimeo: ISelectVimeo): IVideo[] {
       tags: [],
       title: '',
       url: _getVimeoVideoUrl(id),
-      pointer: customIdCellMap[id]
-        ? _getSpreadSheetUrl(
-            apiConfig.spreadsheet.custom.id,
-            customIdCellMap[id]
-          )
-        : undefined,
+      pointer: getPointer(
+        id,
+        apiConfig.spreadsheet.custom.id,
+        apiConfig.spreadsheet.custom.name
+      ),
     };
   });
 }
@@ -749,6 +726,25 @@ function _shuffle([...arr]) {
     [arr[m], arr[i]] = [arr[i], arr[m]];
   }
   return arr;
+}
+
+function getPointer(videoId: string, sheetId: string, sheetName: string) {
+  const sheetIdCellMap = _createIdCellMap(sheetName);
+  if (sheetName === apiConfig.spreadsheet.custom.name) {
+    return sheetIdCellMap[videoId]
+      ? _getSpreadSheetUrl(sheetId, sheetIdCellMap[videoId])
+      : undefined;
+  } else {
+    const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.custom.name);
+    return sheetIdCellMap[videoId]
+      ? _getSpreadSheetUrl(sheetId, sheetIdCellMap[videoId])
+      : customIdCellMap[videoId]
+      ? _getSpreadSheetUrl(
+          apiConfig.spreadsheet.custom.id,
+          customIdCellMap[videoId]
+        )
+      : undefined;
+  }
 }
 
 function _createIdCellMap(sheetName: string) {
