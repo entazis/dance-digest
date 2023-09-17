@@ -77,27 +77,58 @@ enum SortBy {
   Random = 'random',
 }
 
-const apiConfig = {
+interface IApiConfig {
+  email: {
+    templateName: string;
+    subject: string;
+  };
+  spreadsheet: {
+    users: {
+      id: string;
+      name: string;
+    };
+    custom: {
+      id: string;
+      name: string;
+    };
+    youtubeUploads: {
+      id: string;
+      name: string;
+    };
+    googlePhotos: {
+      id: string;
+      name: string;
+    };
+  };
+}
+
+//TODO move this to spreadsheet
+const apiConfig: IApiConfig = {
   email: {
     templateName: 'template',
     subject: 'Daily Dance Digest',
   },
   spreadsheet: {
-    activeSpreadSheetId: '1xFqsQfTaTo0UzTXt2Qhl9V1m0Sta1fsxOCjAEr2BH3E',
-    usersSheetId: '1668639876',
-    customSheetId: '87232840',
-    youtubeUploadsSheetId: '1190338372',
-    googlePhotosSheetId: '1878936212',
+    users: {
+      id: '1668639876',
+      name: 'usersV2',
+    },
+    custom: {
+      id: '87232840',
+      name: 'custom',
+    },
+    youtubeUploads: {
+      id: '1190338372',
+      name: 'youtubeUploads',
+    },
+    googlePhotos: {
+      id: '1878936212',
+      name: 'googlePhotos',
+    },
   },
 };
 
-const sheetIdNameMap: {[sheetId: string]: string} = {
-  [apiConfig.spreadsheet.usersSheetId]: 'usersV2',
-  [apiConfig.spreadsheet.customSheetId]: 'custom',
-  [apiConfig.spreadsheet.youtubeUploadsSheetId]: 'youtubeUploads',
-  [apiConfig.spreadsheet.googlePhotosSheetId]: 'googlePhotos',
-};
-
+//TODO move this to spreadsheet
 const selectYoutubeUploadsPlaylistItems: ISelectYoutubePlaylistItems = {
   list: {
     part: 'snippet',
@@ -108,6 +139,7 @@ const selectYoutubeUploadsPlaylistItems: ISelectYoutubePlaylistItems = {
   },
 };
 
+//TODO move this to spreadsheet
 const selectGooglePhotosUploads: ISelectGooglePhotos = {
   mediaItems: {
     search: {
@@ -209,7 +241,7 @@ function downloadYoutubeUploadsDetails() {
   );
   SpreadsheetApp.getActiveSpreadsheet()
     .getRange(
-      _getSheetRange(apiConfig.spreadsheet.youtubeUploadsSheetId, videos.length)
+      _getSheetRange(apiConfig.spreadsheet.youtubeUploads.name, videos.length)
     )
     .setValues(
       videos.map(video => [
@@ -226,7 +258,7 @@ function uploadYoutubeUploadsDetails() {
     selectYoutubeUploadsPlaylistItems
   );
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(apiConfig.spreadsheet.youtubeUploadsSheetId))
+    .getRange(_getSheetRange(apiConfig.spreadsheet.youtubeUploads.name))
     .getValues()
     .filter(row => row[0]);
 
@@ -257,7 +289,7 @@ function downloadGooglePhotosDetails() {
   const videos = _getGooglePhotosVideos(selectGooglePhotosUploads);
   SpreadsheetApp.getActiveSpreadsheet()
     .getRange(
-      _getSheetRange(apiConfig.spreadsheet.googlePhotosSheetId, videos.length)
+      _getSheetRange(apiConfig.spreadsheet.googlePhotos.name, videos.length)
     )
     .setValues(
       videos.map(video => [
@@ -272,7 +304,7 @@ function downloadGooglePhotosDetails() {
 function uploadGooglePhotosDetails() {
   const videos = _getGooglePhotosVideos(selectGooglePhotosUploads);
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(apiConfig.spreadsheet.googlePhotosSheetId))
+    .getRange(_getSheetRange(apiConfig.spreadsheet.googlePhotos.name))
     .getValues()
     .filter(row => row[0]);
 
@@ -328,7 +360,7 @@ function addMenu() {
 
 function _getUsers(): IUser[] {
   const userValues = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(apiConfig.spreadsheet.usersSheetId))
+    .getRange(_getSheetRange(apiConfig.spreadsheet.users.name))
     .getValues()
     .filter(row => row[0]);
   const users: IUser[] = [];
@@ -343,7 +375,7 @@ function _getUsers(): IUser[] {
 
 function _saveUsers(users: IUser[]): void {
   SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getUsersSheetRange(users.length))
+    .getRange(_getSheetRange(apiConfig.spreadsheet.users.name, users.length))
     .setValues(users.map(user => [user.email, JSON.stringify(user.tracks)]));
 }
 
@@ -459,7 +491,7 @@ function _limitVideos(
 function _addCustomData(videos: IVideo[]): IVideo[] {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const customValues = spreadsheet
-    .getRange(_getSheetRange(apiConfig.spreadsheet.customSheetId))
+    .getRange(_getSheetRange(apiConfig.spreadsheet.custom.name))
     .getValues()
     .filter(row => row[0]);
   const customVideos: IVideoBase[] = [];
@@ -529,9 +561,9 @@ function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
     );
   }
   const uploadsIdCellMap = _createIdCellMap(
-    apiConfig.spreadsheet.youtubeUploadsSheetId
+    apiConfig.spreadsheet.youtubeUploads.name
   );
-  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.customSheetId);
+  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.custom.name);
   for (const response of responses) {
     videos.push(
       ...response.items.map(item => {
@@ -542,12 +574,12 @@ function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
           url: _getYoutubeVideoUrl(item.id),
           pointer: uploadsIdCellMap[item.id]
             ? _getSpreadSheetUrl(
-                apiConfig.spreadsheet.youtubeUploadsSheetId,
+                apiConfig.spreadsheet.youtubeUploads.id,
                 uploadsIdCellMap[item.id]
               )
             : customIdCellMap[item.id]
             ? _getSpreadSheetUrl(
-                apiConfig.spreadsheet.customSheetId,
+                apiConfig.spreadsheet.custom.id,
                 customIdCellMap[item.id]
               )
             : undefined,
@@ -565,9 +597,9 @@ function _getGooglePhotosVideos(
   let pageToken = '';
   const {search} = selectGooglePhotos.mediaItems;
   const googlePhotosIdCellMap = _createIdCellMap(
-    apiConfig.spreadsheet.googlePhotosSheetId
+    apiConfig.spreadsheet.googlePhotos.name
   );
-  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.customSheetId);
+  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.custom.name);
 
   if (search) {
     const mediaItemsSearchUrl =
@@ -597,14 +629,15 @@ function _getGooglePhotosVideos(
         : [],
       title: item.filename,
       url: item.productUrl,
+      //TODO extract get pointer function
       pointer: googlePhotosIdCellMap[item.id]
         ? _getSpreadSheetUrl(
-            apiConfig.spreadsheet.googlePhotosSheetId,
+            apiConfig.spreadsheet.googlePhotos.id,
             googlePhotosIdCellMap[item.id]
           )
         : customIdCellMap[item.id]
         ? _getSpreadSheetUrl(
-            apiConfig.spreadsheet.customSheetId,
+            apiConfig.spreadsheet.custom.id,
             customIdCellMap[item.id]
           )
         : undefined,
@@ -615,7 +648,7 @@ function _getGooglePhotosVideos(
 function _getVimeoVideos(selectVimeo: ISelectVimeo): IVideo[] {
   //TODO connect to vimeo API
   const {videoIds} = selectVimeo;
-  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.customSheetId);
+  const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.custom.name);
   return videoIds.map(id => {
     return {
       id,
@@ -625,7 +658,7 @@ function _getVimeoVideos(selectVimeo: ISelectVimeo): IVideo[] {
       url: _getVimeoVideoUrl(id),
       pointer: customIdCellMap[id]
         ? _getSpreadSheetUrl(
-            apiConfig.spreadsheet.customSheetId,
+            apiConfig.spreadsheet.custom.id,
             customIdCellMap[id]
           )
         : undefined,
@@ -718,9 +751,9 @@ function _shuffle([...arr]) {
   return arr;
 }
 
-function _createIdCellMap(sheetId: string) {
+function _createIdCellMap(sheetName: string) {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = spreadsheet.getSheetByName(sheetIdNameMap[sheetId]);
+  const sheet = spreadsheet.getSheetByName(sheetName);
 
   const values = sheet.getDataRange().getValues();
   const idCellMap: {[videoId: string]: string} = {};
@@ -739,15 +772,11 @@ const _getYoutubeVideoUrl = (videoId: string) =>
 const _getVimeoVideoUrl = (videoId: string) =>
   'https://player.vimeo.com/video/' + videoId;
 const _getSpreadSheetUrl = (sheetId: string, range?: string) =>
-  `https://docs.google.com/spreadsheets/d/${
-    apiConfig.spreadsheet.activeSpreadSheetId
-  }/edit#gid=${sheetId}${range ? `&range=${range}` : ''}`;
-const _getSheetRange = (sheetId: string, count?: number) =>
-  `${sheetIdNameMap[sheetId]}!A2:D${count ? count + 1 : ''}`;
-const _getUsersSheetRange = (count?: number) =>
-  `${sheetIdNameMap[apiConfig.spreadsheet.usersSheetId]}!A2:B${
-    count ? count + 1 : ''
+  `https://docs.google.com/spreadsheets/d/${SpreadsheetApp.getActiveSpreadsheet().getId()}/edit#gid=${sheetId}${
+    range ? `&range=${range}` : ''
   }`;
+const _getSheetRange = (sheetName: string, count?: number) =>
+  `${sheetName}!A2:D${count ? count + 1 : ''}`;
 
 // https://developers.google.com/youtube/v3/docs/playlistItems/list
 interface ISelectYoutubePlaylistItems {

@@ -37,12 +37,12 @@ const firsTracks: ITrack[] = [
     filter: {tagExpression: 'bachata*Brumi*Ancsi'},
     sort: {by: 'random' as SortBy},
     limit: {count: 3},
+    schedule: {cron: '0 16 * * *', timezone: 'Europe/Budapest'},
     progress: {
       current: 0,
       loop: true,
       isStopped: false,
     },
-    schedule: {cron: '0 16 * * *', timezone: 'Europe/Budapest'},
   },
   {
     name: 'Practice Kizomba',
@@ -80,12 +80,12 @@ const firsTracks: ITrack[] = [
     filter: {tagExpression: 'kizomba/Niki'},
     sort: {by: 'random' as SortBy},
     limit: {count: 3},
+    schedule: {cron: '0 16 * * *', timezone: 'Europe/Budapest'},
     progress: {
       current: 0,
       loop: true,
       isStopped: false,
     },
-    schedule: {cron: '0 16 * * *', timezone: 'Europe/Budapest'},
   },
 ];
 
