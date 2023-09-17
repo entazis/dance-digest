@@ -83,24 +83,20 @@ interface IApiConfig {
     subject: string;
   };
   spreadsheet: {
-    users: {
-      id: string;
-      name: string;
-    };
-    custom: {
-      id: string;
-      name: string;
-    };
-    youtubeUploads: {
-      id: string;
-      name: string;
-    };
-    googlePhotos: {
-      id: string;
-      name: string;
-    };
+    [sId: string]: ISheetConfig;
+    users: ISheetConfig;
+    custom: ISheetConfig;
+    youtubeUploads: ISheetConfig;
+    googlePhotos: ISheetConfig;
   };
 }
+
+interface ISheetConfig {
+  id: string;
+  name: string;
+}
+
+const idCellMaps: {[sheetName: string]: {[videoId: string]: string}} = {};
 
 //TODO move this to spreadsheet
 const apiConfig: IApiConfig = {
@@ -223,6 +219,7 @@ const test = () => {
 };
 
 function sendDanceDigestEmail() {
+  init();
   const users = _getUsers();
   Logger.log(JSON.stringify(users));
 
@@ -233,6 +230,12 @@ function sendDanceDigestEmail() {
   }
 
   _saveUsers(users);
+}
+
+function init() {
+  for (const sheetConfig of Object.values(apiConfig.spreadsheet)) {
+    idCellMaps[sheetConfig.name] = _createIdCellMap(sheetConfig.name);
+  }
 }
 
 function downloadYoutubeUploadsDetails() {
@@ -729,13 +732,13 @@ function _shuffle([...arr]) {
 }
 
 function getPointer(videoId: string, sheetId: string, sheetName: string) {
-  const sheetIdCellMap = _createIdCellMap(sheetName);
+  const sheetIdCellMap = _getIdCellMap(sheetName);
   if (sheetName === apiConfig.spreadsheet.custom.name) {
     return sheetIdCellMap[videoId]
       ? _getSpreadSheetUrl(sheetId, sheetIdCellMap[videoId])
       : undefined;
   } else {
-    const customIdCellMap = _createIdCellMap(apiConfig.spreadsheet.custom.name);
+    const customIdCellMap = _getIdCellMap(apiConfig.spreadsheet.custom.name);
     return sheetIdCellMap[videoId]
       ? _getSpreadSheetUrl(sheetId, sheetIdCellMap[videoId])
       : customIdCellMap[videoId]
@@ -747,7 +750,14 @@ function getPointer(videoId: string, sheetId: string, sheetName: string) {
   }
 }
 
-function _createIdCellMap(sheetName: string) {
+function _getIdCellMap(sheetName: string) {
+  if (!idCellMaps[sheetName]) {
+    idCellMaps[sheetName] = _createIdCellMap(sheetName);
+  }
+  return idCellMaps[sheetName];
+}
+
+function _createIdCellMap(sheetName: string): {[videoId: string]: string} {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = spreadsheet.getSheetByName(sheetName);
 
