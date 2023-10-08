@@ -1,9 +1,85 @@
 import YouTube = GoogleAppsScript.YouTube;
 
-interface IUser {
-  email: string;
+interface IApiConfig {
+  user: IUserConfig;
   tracks: ITrack[];
+  providers: IProviders;
+  progresses?: ITrackProgress[];
 }
+
+interface IUserConfig {
+  email: string | string[];
+  subject?: string;
+  body?: string;
+  template?: string;
+}
+
+interface ITrack {
+  name: string;
+  select: ITrackSelect;
+  filter?: ITrackFilter;
+  sort?: ITrackSort;
+  limit?: ITrackLimit;
+  schedule?: ITrackSchedule;
+}
+interface ITrackProgress {
+  name: string;
+  current: number;
+  isStopped?: boolean;
+}
+
+interface ITrackSelect {
+  youtube?: ISelectYoutube;
+  googlePhotos?: ISelectGooglePhotos;
+  vimeo?: ISelectVimeo;
+}
+interface ISelectYoutube {
+  playlistId?: string | string[];
+  videoId?: string | string[];
+}
+interface ISelectGooglePhotos {
+  albumId?: string | string[];
+}
+interface ISelectVimeo {
+  videoId?: string | string[];
+}
+interface ITrackFilter {
+  tagExpression?: string;
+}
+interface ITrackSort {
+  by: SortBy;
+}
+interface ITrackLimit {
+  offset?: number;
+  count?: number;
+  progress?: {
+    loop?: boolean;
+  };
+}
+interface ITrackSchedule {
+  cron: string;
+  timezone?: string;
+}
+
+type IProviders = (IProviderConfig | IYoutubeProviderConfig)[];
+interface IProviderConfig {
+  type: ProviderType;
+  sheet: ISheetConfig;
+}
+enum ProviderType {
+  Youtube = 'youtube',
+  GooglePhotos = 'googlePhotos',
+  Vimeo = 'vimeo',
+}
+interface ISheetConfig {
+  id: string;
+  name: string;
+}
+interface IYoutubeProviderConfig extends IProviderConfig {
+  type: ProviderType.Youtube;
+  uploadsPlaylistId: string;
+}
+
 interface ISection {
   name: string;
   videos: IVideo[];
@@ -23,52 +99,6 @@ interface IVideoBase {
   title: string;
   url: string;
 }
-interface ITrack {
-  name: string;
-  select: ITrackSelect;
-  filter?: ITrackFilter;
-  sort?: ITrackSort;
-  limit?: ITrackLimit;
-  progress?: ITrackProgress;
-  schedule?: ITrackSchedule;
-}
-interface ITrackSelect {
-  youtube?: ISelectYoutube;
-  googlePhotos?: ISelectGooglePhotos;
-  vimeo?: ISelectVimeo;
-}
-interface ITrackFilter {
-  tagExpression?: string;
-}
-interface ITrackSort {
-  by: SortBy;
-}
-interface ITrackLimit {
-  offset?: number;
-  count?: number;
-}
-interface ITrackProgress {
-  current: number;
-  loop?: boolean;
-  isStopped?: boolean;
-}
-interface ITrackSchedule {
-  cron: string;
-  timezone?: string;
-}
-interface ISelectYoutube {
-  playlistItems?: IYoutubePlaylistItems;
-  videos?: ISelectYoutubeVideos;
-}
-interface ISelectGooglePhotos {
-  mediaItems: ISelectGooglePhotosMediaItems;
-  //TODO implement albums, sharedAlbums apis (GET)
-  albums?: any;
-  sharedAlbums?: any;
-}
-interface ISelectVimeo {
-  videoIds: string[];
-}
 
 enum SortBy {
   None = 'none',
@@ -77,175 +107,171 @@ enum SortBy {
   Random = 'random',
 }
 
-interface IApiConfig {
-  email: {
-    templateName: string;
-    subject: string;
-  };
-  spreadsheet: {
-    [sId: string]: ISheetConfig;
-    users: ISheetConfig;
-    custom: ISheetConfig;
-    youtubeUploads: ISheetConfig;
-    googlePhotos: ISheetConfig;
-  };
-}
-
-interface ISheetConfig {
-  id: string;
-  name: string;
-}
-
 const idCellMaps: {[sheetName: string]: {[videoId: string]: string}} = {};
 
 //TODO move this to spreadsheet
-const apiConfig: IApiConfig = {
-  email: {
-    templateName: 'template',
+const testApiConfig: IApiConfig = {
+  user: {
+    email: 'szabo.bence.tat@gmail.com',
     subject: 'Daily Dance Digest',
+    template: 'default',
   },
-  spreadsheet: {
-    users: {
-      id: '1668639876',
-      name: 'usersV2',
-    },
-    custom: {
-      id: '87232840',
-      name: 'custom',
-    },
-    youtubeUploads: {
-      id: '1190338372',
-      name: 'youtubeUploads',
-    },
-    googlePhotos: {
-      id: '1878936212',
-      name: 'googlePhotos',
-    },
-  },
-};
-
-//TODO move this to spreadsheet
-const selectYoutubeUploadsPlaylistItems: IYoutubePlaylistItems = {
-  list: {
-    part: 'snippet',
-    optionalArgs: {
-      playlistId: 'UUN2l886RuTZAHGkhpngCWuw',
-      maxResults: 25,
-    },
-  },
-};
-
-//TODO move this to spreadsheet
-const selectGooglePhotosUploads: ISelectGooglePhotos = {
-  mediaItems: {
-    search: {
-      pageSize: 100,
-      filters: {
-        mediaTypeFilter: {
-          mediaTypes: ['VIDEO'],
+  tracks: [
+    {
+      name: 'Practice Bachata',
+      select: {
+        youtube: {
+          playlistId: 'UUN2l886RuTZAHGkhpngCWuw',
+        },
+        googlePhotos: {
+          albumId: undefined,
+        },
+        vimeo: {
+          videoId: undefined,
         },
       },
-    },
-  },
-};
-
-const progressDefault: ITrackProgress = {
-  current: 0,
-  loop: true,
-  isStopped: false,
-};
-
-const testTrack: ITrack = {
-  name: 'Practice Bachata',
-  select: {
-    youtube: {
-      playlistItems: {
-        list: {
-          part: 'snippet',
-          optionalArgs: {
-            playlistId: 'UUN2l886RuTZAHGkhpngCWuw',
-            maxResults: 25,
-          },
+      filter: {
+        tagExpression: 'bachata/beginner',
+      },
+      sort: {
+        by: SortBy.Random,
+      },
+      limit: {
+        count: 3,
+        progress: {
+          loop: true,
         },
       },
-      videos: {
-        list: {
-          part: 'snippet',
-          optionalArgs: {
-            id: 'CvE0nvyn57w,C6rmpz84aGA,CvzRvpctyaI,QOUadS1FYNc,wlSF0ztk47k,c3QiY_bxU2s,JZw-yYc1bJw,Kl28yQGm1DM,WmtgwdAhEgw,T50f1JcKyvQ,KdwJt3a4Khg,xULxFEtKis8,htdxKWuL4QM,K9fmAh2rTqE,KSd2w72t3xA,7-NSbgdhJ6Q,wzPKWV9LU_Q,zGk9PVQXXo0,GVHiK8ANgkk,updgP09qDHQ,jMFybB_fKks,3yPn9yhTYJU,d9kPiLKb35k,1N4-Nw2k3Hc,NSkWrxFdRCo,ekzGjMZSj5A,UkPukO3M8eQ,yIrQEtMXqNA,p-JlxxcvFng',
-          },
-        },
+      schedule: {
+        cron: '0 16 * * *',
+        timezone: 'Europe/Budapest',
       },
     },
-    googlePhotos: {
-      mediaItems: {
-        search: {
-          pageSize: 100,
-          filters: {
-            mediaTypeFilter: {
-              mediaTypes: ['VIDEO'],
-            },
-          },
+    {
+      name: 'Practice Kizomba',
+      select: {
+        youtube: {
+          playlistId: 'UUN2l886RuTZAHGkhpngCWuw',
+          videoId: [
+            'CvE0nvyn57w',
+            'C6rmpz84aGA',
+            'CvzRvpctyaI',
+            'QOUadS1FYNc',
+            'wlSF0ztk47k',
+            'c3QiY_bxU2s',
+            'JZw-yYc1bJw',
+            'Kl28yQGm1DM',
+            'WmtgwdAhEgw',
+            'T50f1JcKyvQ',
+            'KdwJt3a4Khg',
+            'xULxFEtKis8',
+            'htdxKWuL4QM',
+            'K9fmAh2rTqE',
+            'KSd2w72t3xA',
+            '7-NSbgdhJ6Q',
+            'wzPKWV9LU_Q',
+            'zGk9PVQXXo0',
+            'GVHiK8ANgkk',
+            'updgP09qDHQ',
+            'jMFybB_fKks',
+            '3yPn9yhTYJU',
+            'd9kPiLKb35k',
+            '1N4-Nw2k3Hc',
+            'NSkWrxFdRCo',
+            'ekzGjMZSj5A',
+            'UkPukO3M8eQ',
+            'yIrQEtMXqNA',
+            'p-JlxxcvFng',
+          ],
+        },
+        googlePhotos: {
+          albumId: undefined,
+        },
+        vimeo: {
+          videoId: undefined,
         },
       },
+      filter: {
+        tagExpression: 'kizomba',
+      },
+      sort: {
+        by: SortBy.Random,
+      },
+      limit: {
+        count: 3,
+      },
+      schedule: {
+        cron: '0 16 * * *',
+        timezone: 'Europe/Budapest',
+      },
     },
-  },
-  filter: {
-    tagExpression: 'bachata',
-  },
-  sort: {
-    by: SortBy.Random,
-  },
-  limit: {
-    count: 3,
-  },
-  progress: {
-    current: 0,
-    loop: true,
-    isStopped: false,
-  },
-  schedule: {
-    cron: '0 16 * * *',
-    timezone: 'Europe/Budapest',
-  },
+  ],
+  providers: [
+    {
+      type: ProviderType.Youtube,
+      sheet: {
+        id: '1190338372',
+        name: 'youtubeUploads',
+      },
+      uploadsPlaylistId: 'UUN2l886RuTZAHGkhpngCWuw',
+    },
+    {
+      type: ProviderType.GooglePhotos,
+      sheet: {
+        id: '1878936212',
+        name: 'googlePhotos',
+      },
+    },
+    {
+      type: ProviderType.Vimeo,
+      sheet: {
+        id: '87232840',
+        //TODO review to vimeo<>custom
+        name: 'custom',
+      },
+    },
+  ],
 };
 
 const test = () => {
   Logger.log(`youtube uploads playlist id: ${_getYoutubeUploadsPlaylistId()}`);
-  const results = _getVideos(testTrack);
-  results.forEach(result => {
-    Logger.log(JSON.stringify(result));
-  });
+  sendDanceDigest(testApiConfig);
+  // testApiConfig.tracks.forEach(track => {
+  //   Logger.log(JSON.stringify(track));
+  //   const videos = _getVideos(track);
+  //   videos.forEach(video => {
+  //     Logger.log(JSON.stringify(video));
+  //   });
+  // });
 };
 
-function sendDanceDigestEmail() {
-  init();
-  const users = _getUsers();
-  Logger.log(JSON.stringify(users));
+function sendDanceDigest(apiConfig?: IApiConfig) {
+  apiConfig = apiConfig ? apiConfig : _getApiConfig();
+  Logger.log(JSON.stringify(apiConfig));
+  const {user, tracks, providers, progresses} = apiConfig;
 
-  for (const user of users) {
-    const {sections, tracks} = _getSections(user);
-    _sendEmail(user, sections);
-    user.tracks = tracks;
-  }
-
-  _saveUsers(users);
-}
-
-function init() {
-  for (const sheetConfig of Object.values(apiConfig.spreadsheet)) {
-    idCellMaps[sheetConfig.name] = _createIdCellMap(sheetConfig.name);
-  }
+  _init(providers);
+  const {sections, progresses: progressesUpdate} = _getSectionsAndProgress(
+    tracks,
+    progresses
+  );
+  _sendSections(sections, user);
+  _updateProgress(progressesUpdate);
 }
 
 function downloadYoutubeUploadsDetails() {
+  const youtubeProvider = _getApiConfig().providers.find(
+    provider => provider.type === ProviderType.Youtube
+  ) as IYoutubeProviderConfig | undefined;
+  if (!youtubeProvider) {
+    throw new Error('youtube provider config not found');
+  }
+
   const videos = _getYoutubePlaylistItemsVideos(
-    selectYoutubeUploadsPlaylistItems
+    youtubeProvider.uploadsPlaylistId
   );
   SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(
-      _getSheetRange(apiConfig.spreadsheet.youtubeUploads.name, videos.length)
-    )
+    .getRange(_getA1Notation(youtubeProvider.sheet.name, videos.length))
     .setValues(
       videos.map(video => [
         video.id,
@@ -257,11 +283,18 @@ function downloadYoutubeUploadsDetails() {
 }
 
 function uploadYoutubeUploadsDetails() {
+  const youtubeProvider = _getApiConfig().providers.find(
+    provider => provider.type === ProviderType.Youtube
+  ) as IYoutubeProviderConfig | undefined;
+  if (!youtubeProvider) {
+    throw new Error('youtube provider config not found');
+  }
+
   const videos = _getYoutubePlaylistItemsVideos(
-    selectYoutubeUploadsPlaylistItems
+    youtubeProvider.uploadsPlaylistId
   );
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(apiConfig.spreadsheet.youtubeUploads.name))
+    .getRange(_getA1Notation(youtubeProvider.sheet.name))
     .getValues()
     .filter(row => row[0]);
 
@@ -289,11 +322,16 @@ function uploadYoutubeUploadsDetails() {
 }
 
 function downloadGooglePhotosDetails() {
-  const videos = _getGooglePhotosVideos(selectGooglePhotosUploads);
+  const googlePhotosProvider = _getApiConfig().providers.find(
+    provider => provider.type === ProviderType.GooglePhotos
+  ) as IProviderConfig | undefined;
+  if (!googlePhotosProvider) {
+    throw new Error('google photos provider config not found');
+  }
+
+  const videos = _getGooglePhotosVideos();
   SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(
-      _getSheetRange(apiConfig.spreadsheet.googlePhotos.name, videos.length)
-    )
+    .getRange(_getA1Notation(googlePhotosProvider.sheet.name, videos.length))
     .setValues(
       videos.map(video => [
         video.id,
@@ -305,9 +343,16 @@ function downloadGooglePhotosDetails() {
 }
 
 function uploadGooglePhotosDetails() {
-  const videos = _getGooglePhotosVideos(selectGooglePhotosUploads);
+  const googlePhotosProvider = _getApiConfig().providers.find(
+    provider => provider.type === ProviderType.GooglePhotos
+  ) as IProviderConfig | undefined;
+  if (!googlePhotosProvider) {
+    throw new Error('google photos provider config not found');
+  }
+
+  const videos = _getGooglePhotosVideos();
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(apiConfig.spreadsheet.googlePhotos.name))
+    .getRange(_getA1Notation(googlePhotosProvider.sheet.name))
     .getValues()
     .filter(row => row[0]);
 
@@ -361,59 +406,105 @@ function addMenu() {
   menu.addToUi();
 }
 
-function _getUsers(): IUser[] {
-  const userValues = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(apiConfig.spreadsheet.users.name))
+function _getApiConfig(): IApiConfig {
+  const configValues = SpreadsheetApp.getActiveSpreadsheet()
+    .getRange('config!A2:D')
     .getValues()
     .filter(row => row[0]);
-  const users: IUser[] = [];
-  for (const userValue of userValues) {
-    users.push({
-      email: userValue[0],
-      tracks: JSON.parse(userValue[1]),
+  const apiConfigs: IApiConfig[] = [];
+  for (const configValue of configValues) {
+    if (!configValue[0] || !configValue[1] || !configValue[2]) {
+      throw new Error(`invalid api config, ${JSON.stringify(configValue)}`);
+    }
+    apiConfigs.push({
+      user: JSON.parse(configValue[0]),
+      tracks: JSON.parse(configValue[1]),
+      providers: JSON.parse(configValue[2]),
+      progresses: JSON.parse(configValue[3] || '[]'),
     });
   }
-  return users;
+  if (apiConfigs.length > 1) {
+    console.warn('more than one api config found, using the first one');
+  } else if (apiConfigs.length < 1) {
+    throw new Error('no api config found');
+  } else {
+    return apiConfigs[0];
+  }
 }
 
-function _saveUsers(users: IUser[]): void {
+function _updateProgress(progresses: ITrackProgress[]): void {
   SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getSheetRange(apiConfig.spreadsheet.users.name, users.length))
-    .setValues(users.map(user => [user.email, JSON.stringify(user.tracks)]));
+    .getRange('config!D2')
+    .setValue(JSON.stringify(progresses));
 }
 
-function _getSections(user: IUser) {
-  const sections: ISection[] = [];
-  for (const trackIndex in user.tracks) {
-    if (!user.tracks[trackIndex].progress) {
-      user.tracks[trackIndex].progress = progressDefault;
+function _init(providerConfigs: IProviderConfig[]) {
+  for (const providerConfig of providerConfigs) {
+    switch (providerConfig.type) {
+      case ProviderType.Youtube:
+      case ProviderType.GooglePhotos:
+      case ProviderType.Vimeo:
+        idCellMaps[providerConfig.sheet.name] = _createIdCellMap(
+          providerConfig.sheet.name
+        );
+        break;
+      default:
+        throw new Error(
+          `provider type is not supported: ${providerConfig.type}`
+        );
     }
-    const track = user.tracks[trackIndex];
-    //TODO implement scheduling
-    const {name, schedule, progress, limit} = track;
-    const videos = _getVideos(track);
-    if (!progress.isStopped) {
-      let current = progress.current + (limit.offset ? limit.offset : 0);
-      if (videos.length < 1) {
-        if (progress.loop) {
-          current = limit.offset ? limit.offset : 0;
+  }
+}
+
+function _getSectionsAndProgress(
+  tracks: ITrack[],
+  progresses: ITrackProgress[]
+): {
+  sections: ISection[];
+  progresses: ITrackProgress[];
+} {
+  const sections: ISection[] = [];
+  for (const track of tracks) {
+    let progress: ITrackProgress | undefined = progresses.find(
+      progress => progress.name === track.name
+    );
+    if (!progress && track.limit.progress) {
+      progress = {
+        name: track.name,
+        current: 0,
+        isStopped: false,
+      };
+      progresses.push(progress);
+    }
+    const videos = _getVideos(track, progress?.current);
+    const {name, limit} = track;
+
+    //TODO refactor progress handling
+    if (progress) {
+      if (progress.isStopped) {
+        continue;
+      } else if (videos.length < 1) {
+        if (limit.progress.loop) {
+          progress.current = limit.offset ? limit.offset : 0;
         } else {
           progress.isStopped = true;
         }
       } else {
-        sections.push({
-          name,
-          videos,
-        });
+        progress.current =
+          progress.current + (limit.offset ? limit.offset : 0) + videos.length;
       }
-      user.tracks[trackIndex].progress.current = current + videos.length;
     }
+
+    sections.push({
+      name,
+      videos,
+    });
   }
-  return {sections, tracks: user.tracks};
+  return {sections, progresses};
 }
 
-function _getVideos(track: ITrack): IVideo[] {
-  const {select, filter, sort, limit, progress} = track;
+function _getVideos(track: ITrack, current?: number): IVideo[] {
+  const {select, filter, sort, limit} = track;
   let videos: IVideo[] = _selectVideos(select);
   videos = _addCustomData(videos);
   if (filter) {
@@ -422,8 +513,7 @@ function _getVideos(track: ITrack): IVideo[] {
   if (sort) {
     videos = _sortVideos(videos, sort);
   }
-  videos = _limitVideos(videos, limit, progress);
-
+  videos = _limitVideos(videos, limit, current);
   return videos;
 }
 
@@ -431,16 +521,19 @@ function _selectVideos(select: ITrackSelect): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const {youtube, googlePhotos, vimeo} = select;
   if (youtube) {
-    const {playlistItems, videos} = youtube;
-    if (playlistItems) {
-      selectedVideos.push(..._getYoutubePlaylistItemsVideos(playlistItems));
+    const {playlistId, videoId} = youtube;
+    if (playlistId) {
+      const playlistIds = Array.isArray(playlistId) ? playlistId : [playlistId];
+      for (const playlistId of playlistIds) {
+        selectedVideos.push(..._getYoutubePlaylistItemsVideos(playlistId));
+      }
     }
-    if (videos) {
-      selectedVideos.push(..._getYoutubeVideos(videos));
+    if (videoId) {
+      selectedVideos.push(..._getYoutubeVideos(videoId));
     }
   }
   if (googlePhotos) {
-    selectedVideos.push(..._getGooglePhotosVideos(googlePhotos));
+    selectedVideos.push(..._getGooglePhotosVideos());
   }
   if (vimeo) {
     selectedVideos.push(..._getVimeoVideos(vimeo));
@@ -475,26 +568,17 @@ function _sortVideos(videos: IVideo[], sort: ITrackSort): IVideo[] {
 function _limitVideos(
   videos: IVideo[],
   limit?: ITrackLimit,
-  progress: ITrackProgress = {current: 0, loop: true, isStopped: false}
+  current = 0
 ): IVideo[] {
-  let offset = progress.current + (limit.offset ? limit.offset : 0);
+  const offset = (limit.offset ? limit.offset : 0) + current;
   const count = limit.count ? limit.count : 1;
-  let nextVideos = videos.slice(offset, offset + count);
-  if (nextVideos.length < 1) {
-    if (progress.loop) {
-      offset = limit.offset ? limit.offset : 0;
-      nextVideos = videos.slice(offset, count);
-    } else {
-      nextVideos = [];
-    }
-  }
-  return nextVideos;
+  return videos.slice(offset, offset + count);
 }
 
 function _addCustomData(videos: IVideo[]): IVideo[] {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const customValues = spreadsheet
-    .getRange(_getSheetRange(apiConfig.spreadsheet.custom.name))
+    .getRange(_getA1Notation(testApiConfig.spreadsheet.custom.name))
     .getValues()
     .filter(row => row[0]);
   const customVideos: IVideoBase[] = [];
@@ -516,10 +600,9 @@ function _addCustomData(videos: IVideo[]): IVideo[] {
   });
 }
 
-function _getYoutubePlaylistItemsVideos(
-  selectYoutubePlaylistItems: IYoutubePlaylistItems
-): IVideo[] {
-  const {part, optionalArgs} = selectYoutubePlaylistItems.list;
+function _getYoutubePlaylistItemsVideos(playlistId: string): IVideo[] {
+  const {part, optionalArgs} =
+    _getYoutubePlaylistItemsListParams(playlistId).list;
   const videoIds: string[] = [];
   let nextPageToken = null;
   do {
@@ -538,19 +621,13 @@ function _getYoutubePlaylistItemsVideos(
     }
     nextPageToken = playlistResponse.nextPageToken;
   } while (nextPageToken);
-  const selectYoutubeVideos: ISelectYoutubeVideos = {
-    list: {
-      part: 'snippet',
-      optionalArgs: {
-        id: videoIds.join(','),
-      },
-    },
-  };
-  return _getYoutubeVideos(selectYoutubeVideos);
+  return _getYoutubeVideos(videoIds);
 }
 
-function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
-  const {part, optionalArgs} = youtubeVideos.list;
+function _getYoutubeVideos(videoId: string | string[]): IVideo[] {
+  const {part, optionalArgs} = _getYoutubeVideosListParams(
+    Array.isArray(videoId) ? videoId.join(',') : videoId
+  ).list;
   const videos: IVideo[] = [];
   const responses: YouTube.Schema.VideoListResponse[] = [];
   const chunkSize = 50;
@@ -573,8 +650,8 @@ function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
           url: _getYoutubeVideoUrl(item.id),
           pointer: getPointer(
             item.id,
-            apiConfig.spreadsheet.youtubeUploads.id,
-            apiConfig.spreadsheet.youtubeUploads.name
+            testApiConfig.spreadsheet.youtubeUploads.id,
+            testApiConfig.spreadsheet.youtubeUploads.name
           ),
         };
       })
@@ -583,12 +660,10 @@ function _getYoutubeVideos(youtubeVideos: ISelectYoutubeVideos): IVideo[] {
   return videos;
 }
 
-function _getGooglePhotosVideos(
-  selectGooglePhotos: ISelectGooglePhotos
-): IVideo[] {
+function _getGooglePhotosVideos(): IVideo[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
-  const {search} = selectGooglePhotos.mediaItems;
+  const {search} = _getGooglePhotosParams().mediaItems;
 
   if (search) {
     const mediaItemsSearchUrl =
@@ -620,8 +695,8 @@ function _getGooglePhotosVideos(
       url: item.productUrl,
       pointer: getPointer(
         item.id,
-        apiConfig.spreadsheet.googlePhotos.id,
-        apiConfig.spreadsheet.googlePhotos.name
+        testApiConfig.spreadsheet.googlePhotos.id,
+        testApiConfig.spreadsheet.googlePhotos.name
       ),
     };
   });
@@ -639,8 +714,8 @@ function _getVimeoVideos(selectVimeo: ISelectVimeo): IVideo[] {
       url: _getVimeoVideoUrl(id),
       pointer: getPointer(
         id,
-        apiConfig.spreadsheet.custom.id,
-        apiConfig.spreadsheet.custom.name
+        testApiConfig.spreadsheet.custom.id,
+        testApiConfig.spreadsheet.custom.name
       ),
     };
   });
@@ -676,13 +751,16 @@ function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
   );
 }
 
-function _sendEmail(user: IUser, sections: ISection[]): void {
-  if (sections.length > 0) {
-    const template = HtmlService.createTemplateFromFile(
-      apiConfig.email.templateName
-    );
-    template.sections = sections;
-    GmailApp.sendEmail(user.email, _getEmailSubject(user), '', {
+function _sendSections(sections: ISection[], userConfig: IUserConfig): void {
+  const template = HtmlService.createTemplateFromFile(
+    userConfig.template || 'default'
+  );
+  template.sections = sections;
+  const emails = Array.isArray(userConfig.email)
+    ? userConfig.email
+    : [userConfig.email];
+  for (const email of emails) {
+    GmailApp.sendEmail(email, userConfig.subject, userConfig.body, {
       htmlBody: template.evaluate().getContent(),
     });
   }
@@ -716,12 +794,6 @@ function _getYoutubeUploadsPlaylistId(): string {
   return result.items[0].contentDetails.relatedPlaylists.uploads;
 }
 
-function _getEmailSubject(user: IUser): string {
-  return `${apiConfig.email.subject}: ${user.tracks
-    .map(track => track.name)
-    .join(', ')}`;
-}
-
 function _shuffle([...arr]) {
   let m = arr.length;
   while (m) {
@@ -733,17 +805,19 @@ function _shuffle([...arr]) {
 
 function getPointer(videoId: string, sheetId: string, sheetName: string) {
   const sheetIdCellMap = _getIdCellMap(sheetName);
-  if (sheetName === apiConfig.spreadsheet.custom.name) {
+  if (sheetName === testApiConfig.spreadsheet.custom.name) {
     return sheetIdCellMap[videoId]
       ? _getSpreadSheetUrl(sheetId, sheetIdCellMap[videoId])
       : undefined;
   } else {
-    const customIdCellMap = _getIdCellMap(apiConfig.spreadsheet.custom.name);
+    const customIdCellMap = _getIdCellMap(
+      testApiConfig.spreadsheet.custom.name
+    );
     return sheetIdCellMap[videoId]
       ? _getSpreadSheetUrl(sheetId, sheetIdCellMap[videoId])
       : customIdCellMap[videoId]
       ? _getSpreadSheetUrl(
-          apiConfig.spreadsheet.custom.id,
+          testApiConfig.spreadsheet.custom.id,
           customIdCellMap[videoId]
         )
       : undefined;
@@ -781,28 +855,66 @@ const _getSpreadSheetUrl = (sheetId: string, range?: string) =>
   `https://docs.google.com/spreadsheets/d/${SpreadsheetApp.getActiveSpreadsheet().getId()}/edit#gid=${sheetId}${
     range ? `&range=${range}` : ''
   }`;
-const _getSheetRange = (sheetName: string, count?: number) =>
+const _getA1Notation = (sheetName: string, count?: number) =>
   `${sheetName}!A2:D${count ? count + 1 : ''}`;
 
-// https://developers.google.com/youtube/v3/docs/playlistItems/list
-interface IYoutubePlaylistItems {
-  list: {
-    part: 'contentDetails' | 'id' | 'snippet' | 'status';
-    optionalArgs: IYoutubePlaylistItemsListOptionalArgs;
+function _getYoutubePlaylistItemsListParams(
+  playlistId: string
+): IYoutubePlaylistItemsList {
+  return {
+    list: {
+      part: 'snippet',
+      optionalArgs: {
+        playlistId,
+        maxResults: 25,
+      },
+    },
   };
 }
 
-interface IYoutubePlaylistItemsListOptionalArgs {
-  id?: string;
-  maxResults?: number;
-  onBehalfOfContentOwner?: string;
-  pageToken?: string;
-  playlistId?: string;
-  videoId?: string;
+function _getYoutubeVideosListParams(videoId: string): IYoutubeVideosList {
+  return {
+    list: {
+      part: 'snippet',
+      optionalArgs: {
+        id: videoId,
+      },
+    },
+  };
+}
+
+function _getGooglePhotosParams(): {mediaItems: ISelectGooglePhotosMediaItems} {
+  return {
+    mediaItems: {
+      search: {
+        pageSize: 100,
+        filters: {
+          mediaTypeFilter: {
+            mediaTypes: ['VIDEO'],
+          },
+        },
+      },
+    },
+  };
+}
+
+// https://developers.google.com/youtube/v3/docs/playlistItems/list
+interface IYoutubePlaylistItemsList {
+  list: {
+    part: 'contentDetails' | 'id' | 'snippet' | 'status';
+    optionalArgs: {
+      id?: string;
+      maxResults?: number;
+      onBehalfOfContentOwner?: string;
+      pageToken?: string;
+      playlistId?: string;
+      videoId?: string;
+    };
+  };
 }
 
 // https://developers.google.com/youtube/v3/docs/videos/list
-interface ISelectYoutubeVideos {
+interface IYoutubeVideosList {
   list: {
     part:
       | 'contentDetails'
