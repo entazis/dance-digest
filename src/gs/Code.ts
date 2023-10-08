@@ -57,7 +57,7 @@ interface ITrackSchedule {
   timezone?: string;
 }
 interface ISelectYoutube {
-  playlistItems?: ISelectYoutubePlaylistItems;
+  playlistItems?: IYoutubePlaylistItems;
   videos?: ISelectYoutubeVideos;
 }
 interface ISelectGooglePhotos {
@@ -125,7 +125,7 @@ const apiConfig: IApiConfig = {
 };
 
 //TODO move this to spreadsheet
-const selectYoutubeUploadsPlaylistItems: ISelectYoutubePlaylistItems = {
+const selectYoutubeUploadsPlaylistItems: IYoutubePlaylistItems = {
   list: {
     part: 'snippet',
     optionalArgs: {
@@ -517,7 +517,7 @@ function _addCustomData(videos: IVideo[]): IVideo[] {
 }
 
 function _getYoutubePlaylistItemsVideos(
-  selectYoutubePlaylistItems: ISelectYoutubePlaylistItems
+  selectYoutubePlaylistItems: IYoutubePlaylistItems
 ): IVideo[] {
   const {part, optionalArgs} = selectYoutubePlaylistItems.list;
   const videoIds: string[] = [];
@@ -785,18 +785,20 @@ const _getSheetRange = (sheetName: string, count?: number) =>
   `${sheetName}!A2:D${count ? count + 1 : ''}`;
 
 // https://developers.google.com/youtube/v3/docs/playlistItems/list
-interface ISelectYoutubePlaylistItems {
+interface IYoutubePlaylistItems {
   list: {
     part: 'contentDetails' | 'id' | 'snippet' | 'status';
-    optionalArgs: {
-      id?: string;
-      maxResults?: number;
-      onBehalfOfContentOwner?: string;
-      pageToken?: string;
-      playlistId?: string;
-      videoId?: string;
-    };
+    optionalArgs: IYoutubePlaylistItemsListOptionalArgs;
   };
+}
+
+interface IYoutubePlaylistItemsListOptionalArgs {
+  id?: string;
+  maxResults?: number;
+  onBehalfOfContentOwner?: string;
+  pageToken?: string;
+  playlistId?: string;
+  videoId?: string;
 }
 
 // https://developers.google.com/youtube/v3/docs/videos/list
