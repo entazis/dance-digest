@@ -70,6 +70,7 @@ enum ProviderType {
   Youtube = 'youtube',
   GooglePhotos = 'googlePhotos',
   Vimeo = 'vimeo',
+  Custom = 'custom',
 }
 interface ISheetConfig {
   id: string;
@@ -107,9 +108,11 @@ enum SortBy {
   Random = 'random',
 }
 
-const idCellMaps: {[sheetName: string]: {[videoId: string]: string}} = {};
+//TODO create "id details map" videoId: {custom: IVideoBase, cell: string}, apply for vimeo
+type IdCellMap = {[videoId: string]: string};
 
-//TODO move this to spreadsheet
+const idCellMaps: {[sheetName: string]: IdCellMap} = {};
+
 const testApiConfig: IApiConfig = {
   user: {
     email: 'szabo.bence.tat@gmail.com',
@@ -225,34 +228,35 @@ const testApiConfig: IApiConfig = {
     {
       type: ProviderType.Vimeo,
       sheet: {
+        id: '771704511',
+        name: 'vimeo',
+      },
+    },
+    {
+      type: ProviderType.Custom,
+      sheet: {
         id: '87232840',
-        //TODO review to vimeo<>custom
         name: 'custom',
       },
     },
   ],
+  progresses: [],
 };
 
 const test = () => {
   Logger.log(`youtube uploads playlist id: ${_getYoutubeUploadsPlaylistId()}`);
   sendDanceDigest(testApiConfig);
-  // testApiConfig.tracks.forEach(track => {
-  //   Logger.log(JSON.stringify(track));
-  //   const videos = _getVideos(track);
-  //   videos.forEach(video => {
-  //     Logger.log(JSON.stringify(video));
-  //   });
-  // });
 };
 
 function sendDanceDigest(apiConfig?: IApiConfig) {
   apiConfig = apiConfig ? apiConfig : _getApiConfig();
   Logger.log(JSON.stringify(apiConfig));
-  const {user, tracks, providers, progresses} = apiConfig;
+  const {user, tracks, providers, progresses = []} = apiConfig;
 
   _init(providers);
   const {sections, progresses: progressesUpdate} = _getSectionsAndProgress(
     tracks,
+    providers,
     progresses
   );
   _sendSections(sections, user);
@@ -260,41 +264,19 @@ function sendDanceDigest(apiConfig?: IApiConfig) {
 }
 
 function downloadYoutubeUploadsDetails() {
-  const youtubeProvider = _getApiConfig().providers.find(
-    provider => provider.type === ProviderType.Youtube
-  ) as IYoutubeProviderConfig | undefined;
-  if (!youtubeProvider) {
-    throw new Error('youtube provider config not found');
-  }
+  const {provider, videos} = _getProviderAndVideos(ProviderType.Youtube);
+  _setVideos(provider, videos);
+}
 
-  const videos = _getYoutubePlaylistItemsVideos(
-    youtubeProvider.uploadsPlaylistId
-  );
-  SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getA1Notation(youtubeProvider.sheet.name, videos.length))
-    .setValues(
-      videos.map(video => [
-        video.id,
-        video.tags.join(','),
-        video.url,
-        video.title,
-      ])
-    );
+function downloadGooglePhotosDetails() {
+  const {provider, videos} = _getProviderAndVideos(ProviderType.GooglePhotos);
+  _setVideos(provider, videos);
 }
 
 function uploadYoutubeUploadsDetails() {
-  const youtubeProvider = _getApiConfig().providers.find(
-    provider => provider.type === ProviderType.Youtube
-  ) as IYoutubeProviderConfig | undefined;
-  if (!youtubeProvider) {
-    throw new Error('youtube provider config not found');
-  }
-
-  const videos = _getYoutubePlaylistItemsVideos(
-    youtubeProvider.uploadsPlaylistId
-  );
+  const {provider, videos} = _getProviderAndVideos(ProviderType.Youtube);
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getA1Notation(youtubeProvider.sheet.name))
+    .getRange(_getA1Notation(provider.sheet.name))
     .getValues()
     .filter(row => row[0]);
 
@@ -321,38 +303,10 @@ function uploadYoutubeUploadsDetails() {
   }
 }
 
-function downloadGooglePhotosDetails() {
-  const googlePhotosProvider = _getApiConfig().providers.find(
-    provider => provider.type === ProviderType.GooglePhotos
-  ) as IProviderConfig | undefined;
-  if (!googlePhotosProvider) {
-    throw new Error('google photos provider config not found');
-  }
-
-  const videos = _getGooglePhotosVideos();
-  SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getA1Notation(googlePhotosProvider.sheet.name, videos.length))
-    .setValues(
-      videos.map(video => [
-        video.id,
-        video.tags.join(','),
-        video.url,
-        video.title,
-      ])
-    );
-}
-
 function uploadGooglePhotosDetails() {
-  const googlePhotosProvider = _getApiConfig().providers.find(
-    provider => provider.type === ProviderType.GooglePhotos
-  ) as IProviderConfig | undefined;
-  if (!googlePhotosProvider) {
-    throw new Error('google photos provider config not found');
-  }
-
-  const videos = _getGooglePhotosVideos();
+  const {provider, videos} = _getProviderAndVideos(ProviderType.GooglePhotos);
   const results = SpreadsheetApp.getActiveSpreadsheet()
-    .getRange(_getA1Notation(googlePhotosProvider.sheet.name))
+    .getRange(_getA1Notation(provider.sheet.name))
     .getValues()
     .filter(row => row[0]);
 
@@ -388,6 +342,49 @@ function uploadGooglePhotosDetails() {
       const response = UrlFetchApp.fetch(mediaItemsUpdateUrl, params);
     }
   }
+}
+
+function _getProviderAndVideos(type: ProviderType) {
+  const apiConfig = _getApiConfig();
+  const provider = apiConfig.providers.find(
+    provider => provider.type === type
+  ) as IYoutubeProviderConfig | undefined;
+  if (!provider) {
+    throw new Error(`provider config ${type} not found`);
+  }
+  const fallbackProvider = apiConfig.providers.find(
+    provider => provider.type === ProviderType.Custom
+  ) as IProviderConfig | undefined;
+
+  let videos: IVideo[] = [];
+  switch (type) {
+    case ProviderType.Youtube:
+      videos = _getYoutubePlaylistItemsVideos(
+        provider.uploadsPlaylistId,
+        provider,
+        fallbackProvider
+      );
+      break;
+    case ProviderType.GooglePhotos:
+      videos = _getGooglePhotosVideos(provider, fallbackProvider);
+      break;
+    default:
+      throw new Error(`provider type is not supported: ${type}`);
+  }
+  return {provider, videos};
+}
+
+function _setVideos(provider: IProviderConfig, videos: IVideo[]) {
+  SpreadsheetApp.getActiveSpreadsheet()
+    .getRange(_getA1Notation(provider.sheet.name, videos.length))
+    .setValues(
+      videos.map(video => [
+        video.id,
+        video.tags.join(','),
+        video.url,
+        video.title,
+      ])
+    );
 }
 
 function onOpen() {
@@ -434,6 +431,7 @@ function _getApiConfig(): IApiConfig {
 
 function _updateProgress(progresses: ITrackProgress[]): void {
   SpreadsheetApp.getActiveSpreadsheet()
+    //TODO literal
     .getRange('config!D2')
     .setValue(JSON.stringify(progresses));
 }
@@ -444,6 +442,7 @@ function _init(providerConfigs: IProviderConfig[]) {
       case ProviderType.Youtube:
       case ProviderType.GooglePhotos:
       case ProviderType.Vimeo:
+      case ProviderType.Custom:
         idCellMaps[providerConfig.sheet.name] = _createIdCellMap(
           providerConfig.sheet.name
         );
@@ -458,6 +457,7 @@ function _init(providerConfigs: IProviderConfig[]) {
 
 function _getSectionsAndProgress(
   tracks: ITrack[],
+  providers: IProviders,
   progresses: ITrackProgress[]
 ): {
   sections: ISection[];
@@ -468,7 +468,7 @@ function _getSectionsAndProgress(
     let progress: ITrackProgress | undefined = progresses.find(
       progress => progress.name === track.name
     );
-    if (!progress && track.limit.progress) {
+    if (!progress && track.limit?.progress) {
       progress = {
         name: track.name,
         current: 0,
@@ -476,7 +476,7 @@ function _getSectionsAndProgress(
       };
       progresses.push(progress);
     }
-    const videos = _getVideos(track, progress?.current);
+    const videos = _getVideos(track, providers, progress?.current);
     const {name, limit} = track;
 
     //TODO refactor progress handling
@@ -503,10 +503,22 @@ function _getSectionsAndProgress(
   return {sections, progresses};
 }
 
-function _getVideos(track: ITrack, current?: number): IVideo[] {
+function _getVideos(
+  track: ITrack,
+  providers: IProviders,
+  current?: number
+): IVideo[] {
   const {select, filter, sort, limit} = track;
-  let videos: IVideo[] = _selectVideos(select);
-  videos = _addCustomData(videos);
+  let videos: IVideo[] = _selectVideos(select, providers);
+
+  const customProvider = providers.find(
+    provider => provider.type === ProviderType.Custom
+  ) as IProviderConfig | undefined;
+  if (!customProvider) {
+    throw new Error('custom provider config not found');
+  }
+  videos = _addCustomData(videos, customProvider);
+
   if (filter) {
     videos = _filterVideos(videos, filter);
   }
@@ -517,26 +529,55 @@ function _getVideos(track: ITrack, current?: number): IVideo[] {
   return videos;
 }
 
-function _selectVideos(select: ITrackSelect): IVideo[] {
+function _selectVideos(select: ITrackSelect, providers: IProviders): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const {youtube, googlePhotos, vimeo} = select;
+  const fallbackProvider = providers.find(
+    provider => provider.type === ProviderType.Custom
+  );
   if (youtube) {
+    const provider = providers.find(
+      provider => provider.type === ProviderType.Youtube
+    ) as IYoutubeProviderConfig | undefined;
+    if (!provider) {
+      throw new Error('youtube provider config not found');
+    }
     const {playlistId, videoId} = youtube;
     if (playlistId) {
       const playlistIds = Array.isArray(playlistId) ? playlistId : [playlistId];
       for (const playlistId of playlistIds) {
-        selectedVideos.push(..._getYoutubePlaylistItemsVideos(playlistId));
+        selectedVideos.push(
+          ..._getYoutubePlaylistItemsVideos(
+            playlistId,
+            provider,
+            fallbackProvider
+          )
+        );
       }
     }
     if (videoId) {
-      selectedVideos.push(..._getYoutubeVideos(videoId));
+      selectedVideos.push(
+        ..._getYoutubeVideos(videoId, provider, fallbackProvider)
+      );
     }
   }
   if (googlePhotos) {
-    selectedVideos.push(..._getGooglePhotosVideos());
+    const provider = providers.find(
+      provider => provider.type === ProviderType.GooglePhotos
+    ) as IProviderConfig | undefined;
+    if (!provider) {
+      throw new Error('googlePhotos provider config not found');
+    }
+    selectedVideos.push(..._getGooglePhotosVideos(provider, fallbackProvider));
   }
   if (vimeo) {
-    selectedVideos.push(..._getVimeoVideos(vimeo));
+    const provider = providers.find(
+      provider => provider.type === ProviderType.Vimeo
+    ) as IProviderConfig | undefined;
+    if (!provider) {
+      throw new Error('vimeo provider config not found');
+    }
+    selectedVideos.push(..._getVimeoVideos(vimeo, provider, fallbackProvider));
   }
   return selectedVideos;
 }
@@ -575,10 +616,10 @@ function _limitVideos(
   return videos.slice(offset, offset + count);
 }
 
-function _addCustomData(videos: IVideo[]): IVideo[] {
+function _addCustomData(videos: IVideo[], provider: IProviderConfig): IVideo[] {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const customValues = spreadsheet
-    .getRange(_getA1Notation(testApiConfig.spreadsheet.custom.name))
+    .getRange(_getA1Notation(provider.sheet.name))
     .getValues()
     .filter(row => row[0]);
   const customVideos: IVideoBase[] = [];
@@ -600,7 +641,11 @@ function _addCustomData(videos: IVideo[]): IVideo[] {
   });
 }
 
-function _getYoutubePlaylistItemsVideos(playlistId: string): IVideo[] {
+function _getYoutubePlaylistItemsVideos(
+  playlistId: string,
+  provider: IYoutubeProviderConfig,
+  fallbackProvider?: IProviderConfig
+): IVideo[] {
   const {part, optionalArgs} =
     _getYoutubePlaylistItemsListParams(playlistId).list;
   const videoIds: string[] = [];
@@ -621,10 +666,14 @@ function _getYoutubePlaylistItemsVideos(playlistId: string): IVideo[] {
     }
     nextPageToken = playlistResponse.nextPageToken;
   } while (nextPageToken);
-  return _getYoutubeVideos(videoIds);
+  return _getYoutubeVideos(videoIds, provider, fallbackProvider);
 }
 
-function _getYoutubeVideos(videoId: string | string[]): IVideo[] {
+function _getYoutubeVideos(
+  videoId: string | string[],
+  provider: IYoutubeProviderConfig,
+  fallbackProvider?: IProviderConfig
+): IVideo[] {
   const {part, optionalArgs} = _getYoutubeVideosListParams(
     Array.isArray(videoId) ? videoId.join(',') : videoId
   ).list;
@@ -648,11 +697,7 @@ function _getYoutubeVideos(videoId: string | string[]): IVideo[] {
           tags: item.snippet.tags,
           title: item.snippet.title,
           url: _getYoutubeVideoUrl(item.id),
-          pointer: getPointer(
-            item.id,
-            testApiConfig.spreadsheet.youtubeUploads.id,
-            testApiConfig.spreadsheet.youtubeUploads.name
-          ),
+          pointer: _getPointer(item.id, provider.sheet, fallbackProvider.sheet),
         };
       })
     );
@@ -660,7 +705,10 @@ function _getYoutubeVideos(videoId: string | string[]): IVideo[] {
   return videos;
 }
 
-function _getGooglePhotosVideos(): IVideo[] {
+function _getGooglePhotosVideos(
+  provider: IProviderConfig,
+  fallbackProvider?: IProviderConfig
+): IVideo[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
   const {search} = _getGooglePhotosParams().mediaItems;
@@ -693,30 +741,26 @@ function _getGooglePhotosVideos(): IVideo[] {
         : [],
       title: item.filename,
       url: item.productUrl,
-      pointer: getPointer(
-        item.id,
-        testApiConfig.spreadsheet.googlePhotos.id,
-        testApiConfig.spreadsheet.googlePhotos.name
-      ),
+      pointer: _getPointer(item.id, provider.sheet, fallbackProvider.sheet),
     };
   });
 }
 
-function _getVimeoVideos(selectVimeo: ISelectVimeo): IVideo[] {
+function _getVimeoVideos(
+  selectVimeo: ISelectVimeo,
+  provider: IProviderConfig,
+  fallbackProvider?: IProviderConfig
+): IVideo[] {
   //TODO connect to vimeo API
-  const {videoIds} = selectVimeo;
-  return videoIds.map(id => {
+  const {videoId} = selectVimeo;
+  return (Array.isArray(videoId) ? videoId : [videoId]).map(id => {
     return {
       id,
       //TODO add tags and title from custom sheet
       tags: [],
       title: '',
       url: _getVimeoVideoUrl(id),
-      pointer: getPointer(
-        id,
-        testApiConfig.spreadsheet.custom.id,
-        testApiConfig.spreadsheet.custom.name
-      ),
+      pointer: _getPointer(id, provider.sheet, fallbackProvider.sheet),
     };
   });
 }
@@ -803,25 +847,23 @@ function _shuffle([...arr]) {
   return arr;
 }
 
-function getPointer(videoId: string, sheetId: string, sheetName: string) {
-  const sheetIdCellMap = _getIdCellMap(sheetName);
-  if (sheetName === testApiConfig.spreadsheet.custom.name) {
-    return sheetIdCellMap[videoId]
-      ? _getSpreadSheetUrl(sheetId, sheetIdCellMap[videoId])
-      : undefined;
-  } else {
-    const customIdCellMap = _getIdCellMap(
-      testApiConfig.spreadsheet.custom.name
-    );
-    return sheetIdCellMap[videoId]
-      ? _getSpreadSheetUrl(sheetId, sheetIdCellMap[videoId])
-      : customIdCellMap[videoId]
-      ? _getSpreadSheetUrl(
-          testApiConfig.spreadsheet.custom.id,
-          customIdCellMap[videoId]
-        )
-      : undefined;
-  }
+function _getPointer(
+  videoId: string,
+  sheetConfig: ISheetConfig,
+  fallbackSheetConfig?: ISheetConfig
+): string | undefined {
+  const sheetIdCellMap = _getIdCellMap(sheetConfig.name);
+  const fallbackSheetIdCellMap = fallbackSheetConfig
+    ? _getIdCellMap(fallbackSheetConfig.name)
+    : {};
+  return sheetIdCellMap[videoId]
+    ? _getSpreadSheetUrl(sheetConfig.id, sheetIdCellMap[videoId])
+    : fallbackSheetIdCellMap[videoId]
+    ? _getSpreadSheetUrl(
+        fallbackSheetConfig.id,
+        fallbackSheetIdCellMap[videoId]
+      )
+    : undefined;
 }
 
 function _getIdCellMap(sheetName: string) {
@@ -831,12 +873,12 @@ function _getIdCellMap(sheetName: string) {
   return idCellMaps[sheetName];
 }
 
-function _createIdCellMap(sheetName: string): {[videoId: string]: string} {
+function _createIdCellMap(sheetName: string): IdCellMap {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = spreadsheet.getSheetByName(sheetName);
 
   const values = sheet.getDataRange().getValues();
-  const idCellMap: {[videoId: string]: string} = {};
+  const idCellMap: IdCellMap = {};
   for (let i = 0; i < values.length; i++) {
     const row = i + 1;
     const column = 1;

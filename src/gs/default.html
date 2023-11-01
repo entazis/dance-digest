@@ -11,13 +11,25 @@
       <ul style="list-style-type: square">
         <? for (const video of section.videos) { ?>
           <li>
-            <a href="<?= video.url ?>"><?= video.title ?></a>:
-            <? if (video.customTags) { ?>
-              <span><?= video.customTags.join(", ") ?></span>
+            <? if (video.custom && video.custom.url) { ?>
+              <a href="<?= video.custom.url?>">
             <? } else { ?>
-              <span><?= video.tags.join(", ") ?></span>
+              <a href="<?= video.url?>">
             <? } ?>
-            <? if (video.pointer) { ?>
+              <? if (video.custom && video.custom.title) { ?>
+                <span><?= video.custom.title ?></span>
+              <? } else { ?>
+                <span><?= video.title ?></span>
+              <? } ?>
+            </a>:
+            <? if (video.custom && video.custom.tags) { ?>
+              <span><?= video.custom.tags.join(", ") ?></span>
+            <? } else { ?>
+                <span><?= video.tags.join(", ") ?></span>
+            <? } ?>
+            <? if (video.custom && video.custom.pointer) { ?>
+              <a href="<?= video.custom.pointer ?>">sheet</a>
+            <? } else if (video.pointer) { ?>
               <a href="<?= video.pointer ?>">sheet</a>
             <? } ?>
           </li>
