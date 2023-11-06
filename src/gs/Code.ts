@@ -248,6 +248,11 @@ const test = () => {
   sendDanceDigest(testApiConfig);
 };
 
+//TODO https://developers.google.com/apps-script/guides/triggers/events
+const run = (event: GoogleAppsScript.Events.TimeDriven) => {
+  sendDanceDigest();
+};
+
 function sendDanceDigest(apiConfig?: IApiConfig) {
   apiConfig = apiConfig ? apiConfig : _getApiConfig();
   Logger.log(JSON.stringify(apiConfig));
