@@ -278,7 +278,12 @@ function _sendDanceDigest(apiConfig: IApiConfig) {
     providers,
     progresses
   );
-  _sendSections(sections, user);
+  if (sections.length > 0) {
+    Logger.log(`sending ${sections.length} sections to ${user.email}`);
+    _sendSections(sections, user);
+  } else {
+    Logger.log(`no sections found for ${user.email}`);
+  }
   _updateProgress(progressesUpdate);
 }
 
