@@ -3,7 +3,7 @@ import YouTube = GoogleAppsScript.YouTube;
 interface IApiConfig {
   user: IUserConfig;
   tracks: ITrack[];
-  providers: IProviders;
+  providers: Providers;
   progresses?: ITrackProgress[];
 }
 
@@ -61,7 +61,7 @@ interface ITrackSchedule {
   timezone?: string;
 }
 
-type IProviders = (IProviderConfig | IYoutubeProviderConfig)[];
+type Providers = (IProviderConfig | IYoutubeProviderConfig)[];
 interface IProviderConfig {
   type: ProviderType;
   sheet: ISheetConfig;
@@ -253,11 +253,25 @@ const run = (event: GoogleAppsScript.Events.TimeDriven) => {
   sendDanceDigest();
 };
 
-function sendDanceDigest(apiConfig?: IApiConfig) {
-  apiConfig = apiConfig ? apiConfig : _getApiConfig();
-  Logger.log(JSON.stringify(apiConfig));
-  const {user, tracks, providers, progresses = []} = apiConfig;
+function sendDanceDigest(apiConfig?: IApiConfig | IApiConfig[]) {
+  const apiConfigs = apiConfig
+    ? Array.isArray(apiConfig)
+      ? apiConfig
+      : [apiConfig]
+    : _getApiConfigs();
 
+  for (const apiConfig of apiConfigs) {
+    _sendDanceDigest(apiConfig);
+  }
+}
+
+function _sendDanceDigest(apiConfig: IApiConfig) {
+  Logger.log(
+    `sending tracks: "${apiConfig.tracks
+      .map(track => track.name)
+      .join('", "')}" to user: ${apiConfig.user.email}`
+  );
+  const {user, tracks, providers, progresses = []} = apiConfig;
   _init(providers);
   const {sections, progresses: progressesUpdate} = _getSectionsAndProgress(
     tracks,
@@ -350,7 +364,12 @@ function uploadGooglePhotosDetails() {
 }
 
 function _getProviderAndVideos(type: ProviderType) {
-  const apiConfig = _getApiConfig();
+  const apiConfigs = _getApiConfigs();
+  if (apiConfigs.length > 1) {
+    console.warn('more than one api config found, using the first one');
+  }
+  const apiConfig = apiConfigs[0];
+
   const provider = apiConfig.providers.find(
     provider => provider.type === type
   ) as IYoutubeProviderConfig | undefined;
@@ -408,29 +427,27 @@ function addMenu() {
   menu.addToUi();
 }
 
-function _getApiConfig(): IApiConfig {
+function _getApiConfigs(): IApiConfig[] {
   const configValues = SpreadsheetApp.getActiveSpreadsheet()
     .getRange('config!A2:D')
     .getValues()
     .filter(row => row[0]);
   const apiConfigs: IApiConfig[] = [];
   for (const configValue of configValues) {
-    if (!configValue[0] || !configValue[1] || !configValue[2]) {
+    if (!configValue[0]) {
       throw new Error(`invalid api config, ${JSON.stringify(configValue)}`);
     }
     apiConfigs.push({
       user: JSON.parse(configValue[0]),
-      tracks: JSON.parse(configValue[1]),
-      providers: JSON.parse(configValue[2]),
+      tracks: JSON.parse(configValue[1] || '[]'),
+      providers: JSON.parse(configValue[2] || '[]'),
       progresses: JSON.parse(configValue[3] || '[]'),
     });
   }
-  if (apiConfigs.length > 1) {
-    console.warn('more than one api config found, using the first one');
-  } else if (apiConfigs.length < 1) {
-    throw new Error('no api config found');
+  if (apiConfigs.length < 1) {
+    throw new Error('no api config was found');
   } else {
-    return apiConfigs[0];
+    return apiConfigs;
   }
 }
 
@@ -462,7 +479,7 @@ function _init(providerConfigs: IProviderConfig[]) {
 
 function _getSectionsAndProgress(
   tracks: ITrack[],
-  providers: IProviders,
+  providers: Providers,
   progresses: ITrackProgress[]
 ): {
   sections: ISection[];
@@ -510,7 +527,7 @@ function _getSectionsAndProgress(
 
 function _getVideos(
   track: ITrack,
-  providers: IProviders,
+  providers: Providers,
   current?: number
 ): IVideo[] {
   const {select, filter, sort, limit} = track;
@@ -534,7 +551,7 @@ function _getVideos(
   return videos;
 }
 
-function _selectVideos(select: ITrackSelect, providers: IProviders): IVideo[] {
+function _selectVideos(select: ITrackSelect, providers: Providers): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const {youtube, googlePhotos, vimeo} = select;
   const fallbackProvider = providers.find(
