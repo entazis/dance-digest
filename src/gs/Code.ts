@@ -38,7 +38,7 @@ interface ISelectYoutube {
   videoId?: string | string[];
 }
 interface ISelectGooglePhotos {
-  albumId?: string | string[];
+  albumId?: string;
 }
 interface ISelectVimeo {
   videoId?: string | string[];
@@ -567,13 +567,16 @@ function _selectVideos(select: ITrackSelect, providers: IProviders): IVideo[] {
     }
   }
   if (googlePhotos) {
+    const {albumId} = googlePhotos;
     const provider = providers.find(
       provider => provider.type === ProviderType.GooglePhotos
     ) as IProviderConfig | undefined;
     if (!provider) {
       throw new Error('googlePhotos provider config not found');
     }
-    selectedVideos.push(..._getGooglePhotosVideos(provider, fallbackProvider));
+    selectedVideos.push(
+      ..._getGooglePhotosVideos(provider, fallbackProvider, albumId)
+    );
   }
   if (vimeo) {
     const provider = providers.find(
@@ -712,11 +715,12 @@ function _getYoutubeVideos(
 
 function _getGooglePhotosVideos(
   provider: IProviderConfig,
-  fallbackProvider?: IProviderConfig
+  fallbackProvider?: IProviderConfig,
+  albumId?: string
 ): IVideo[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
-  const {search} = _getGooglePhotosParams().mediaItems;
+  const {search} = _getGooglePhotosParams(albumId).mediaItems;
 
   if (search) {
     const mediaItemsSearchUrl =
@@ -930,16 +934,21 @@ function _getYoutubeVideosListParams(videoId: string): IYoutubeVideosList {
   };
 }
 
-function _getGooglePhotosParams(): {mediaItems: ISelectGooglePhotosMediaItems} {
+function _getGooglePhotosParams(albumId?: string): {
+  mediaItems: ISelectGooglePhotosMediaItems;
+} {
   return {
     mediaItems: {
       search: {
+        albumId,
         pageSize: 100,
-        filters: {
-          mediaTypeFilter: {
-            mediaTypes: ['VIDEO'],
-          },
-        },
+        filters: albumId
+          ? undefined
+          : {
+              mediaTypeFilter: {
+                mediaTypes: ['VIDEO'],
+              },
+            },
       },
     },
   };
