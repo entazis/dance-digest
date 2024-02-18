@@ -108,6 +108,8 @@ enum SortBy {
   Random = 'random',
 }
 
+const googleTriggerCron = '* 16 * * *';
+
 //TODO create "id details map" videoId: {custom: IVideoBase, cell: string}, apply for vimeo
 type IdCellMap = {[videoId: string]: string};
 
@@ -146,7 +148,7 @@ const testApiConfig: IApiConfig = {
         },
       },
       schedule: {
-        cron: '0 16 * * *',
+        cron: '* 16 * * *',
         timezone: 'Europe/Budapest',
       },
     },
@@ -204,7 +206,7 @@ const testApiConfig: IApiConfig = {
         count: 3,
       },
       schedule: {
-        cron: '0 16 * * *',
+        cron: '* 16 * * *',
         timezone: 'Europe/Budapest',
       },
     },
@@ -492,6 +494,11 @@ function _getSectionsAndProgress(
 } {
   const sections: ISection[] = [];
   for (const track of tracks) {
+    const cron = track.schedule?.cron;
+    if (cron && !_checkCron(cron)) {
+      continue;
+    }
+
     let progress: ITrackProgress | undefined = progresses.find(
       progress => progress.name === track.name
     );
@@ -1013,6 +1020,37 @@ function _getGooglePhotosParams(albumId?: string): {
             },
       },
     },
+  };
+}
+
+interface IParsedCron {
+  minute?: number;
+  hour?: number;
+  dayOfMonth?: number;
+  month?: number;
+  dayOfWeek?: number;
+}
+
+function _checkCron(cronExpression: string): boolean {
+  const now = new Date();
+  const cron = _parseCron(cronExpression);
+  return (
+    (cron.minute === undefined || cron.minute === now.getMinutes()) &&
+    (cron.hour === undefined || cron.hour === now.getHours()) &&
+    (cron.dayOfMonth === undefined || cron.dayOfMonth === now.getDate()) &&
+    (cron.month === undefined || cron.month === now.getMonth()) &&
+    (cron.dayOfWeek === undefined || cron.dayOfWeek === now.getDay())
+  );
+}
+
+function _parseCron(cronExpression = googleTriggerCron): IParsedCron {
+  const fields = cronExpression.split(' ');
+  return {
+    minute: fields[0] ? parseInt(fields[0]) : undefined,
+    hour: fields[1] ? parseInt(fields[1]) : undefined,
+    dayOfMonth: fields[2] ? parseInt(fields[2]) : undefined,
+    month: fields[3] ? parseInt(fields[3]) : undefined,
+    dayOfWeek: fields[4] ? parseInt(fields[4]) : undefined,
   };
 }
 
