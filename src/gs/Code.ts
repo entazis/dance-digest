@@ -777,6 +777,46 @@ function _getGooglePhotosVideos(
   });
 }
 
+function _getSharedAlbums() {
+  let sharedAlbums: ISharedAlbum[] = [];
+  let pageToken = '';
+  const query = {
+    pageSize: 50,
+    pageToken,
+  };
+
+  const listSharedAlbumsUrl =
+    'https://photoslibrary.googleapis.com/v1/sharedAlbums';
+  do {
+    query.pageToken = pageToken;
+    const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+      method: 'get',
+      headers: {
+        Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
+      },
+      contentType: 'application/json',
+    };
+    const response = UrlFetchApp.fetch(
+      listSharedAlbumsUrl +
+        '?' +
+        Object.entries(query)
+          .map(([key, value]) => `${key}=${value}`)
+          .join('&'),
+      params
+    );
+    const result: {sharedAlbums: ISharedAlbum[]; nextPageToken: string} =
+      JSON.parse(response.getContentText());
+    sharedAlbums = sharedAlbums.concat(result.sharedAlbums);
+    pageToken = result.nextPageToken;
+  } while (pageToken);
+
+  sharedAlbums.forEach(album => {
+    Logger.log(album);
+  });
+
+  return sharedAlbums;
+}
+
 function _getVimeoVideos(
   selectVimeo: ISelectVimeo,
   provider: IProviderConfig,
@@ -1166,4 +1206,25 @@ interface IMediaItem {
     displayName: string;
   };
   filename: string;
+}
+
+interface ISharedAlbum {
+  id: string;
+  title: string;
+  productUrl: string;
+  isWriteable: boolean;
+  shareInfo: {
+    sharedAlbumOptions: {
+      isCollaborative: boolean;
+      isCommentable: boolean;
+    };
+    shareableUrl: string;
+    shareToken: string;
+    isJoined: boolean;
+    isOwned: boolean;
+    isJoinable: boolean;
+  };
+  mediaItemsCount: string;
+  coverPhotoBaseUrl: string;
+  coverPhotoMediaItemId: string;
 }
