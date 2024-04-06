@@ -3,7 +3,7 @@ import YouTube = GoogleAppsScript.YouTube;
 interface IApiConfig {
   user: IUserConfig;
   tracks: ITrack[];
-  providers: Providers;
+  providers?: Providers;
   progresses?: ITrackProgress[];
 }
 
@@ -273,8 +273,10 @@ function _sendDanceDigest(apiConfig: IApiConfig) {
       .map(track => track.name)
       .join('", "')}" to user: ${apiConfig.user.email}`
   );
-  const {user, tracks, providers, progresses = []} = apiConfig;
-  _init(providers);
+  const {user, tracks, providers, progresses} = apiConfig;
+  if (providers) {
+    _init(providers);
+  }
   const {sections, progresses: progressesUpdate} = _getSectionsAndProgress(
     tracks,
     providers,
@@ -486,8 +488,8 @@ function _init(providerConfigs: IProviderConfig[]) {
 
 function _getSectionsAndProgress(
   tracks: ITrack[],
-  providers: Providers,
-  progresses: ITrackProgress[]
+  providers?: Providers,
+  progresses: ITrackProgress[] = []
 ): {
   sections: ISection[];
   progresses: ITrackProgress[];
@@ -539,7 +541,7 @@ function _getSectionsAndProgress(
 
 function _getVideos(
   track: ITrack,
-  providers: Providers,
+  providers: Providers = [],
   current?: number
 ): IVideo[] {
   const {select, filter, sort, limit} = track;
@@ -548,10 +550,9 @@ function _getVideos(
   const customProvider = providers.find(
     provider => provider.type === ProviderType.Custom
   ) as IProviderConfig | undefined;
-  if (!customProvider) {
-    throw new Error('custom provider config not found');
+  if (customProvider) {
+    videos = _addCustomData(videos, customProvider);
   }
-  videos = _addCustomData(videos, customProvider);
 
   if (filter) {
     videos = _filterVideos(videos, filter);
@@ -563,7 +564,10 @@ function _getVideos(
   return videos;
 }
 
-function _selectVideos(select: ITrackSelect, providers: Providers): IVideo[] {
+function _selectVideos(
+  select: ITrackSelect,
+  providers: Providers = []
+): IVideo[] {
   const selectedVideos: IVideo[] = [];
   const {youtube, googlePhotos, vimeo} = select;
   const fallbackProvider = providers.find(
@@ -573,9 +577,6 @@ function _selectVideos(select: ITrackSelect, providers: Providers): IVideo[] {
     const provider = providers.find(
       provider => provider.type === ProviderType.Youtube
     ) as IYoutubeProviderConfig | undefined;
-    if (!provider) {
-      throw new Error('youtube provider config not found');
-    }
     const {playlistId, videoId} = youtube;
     if (playlistId) {
       const playlistIds = Array.isArray(playlistId) ? playlistId : [playlistId];
@@ -600,9 +601,6 @@ function _selectVideos(select: ITrackSelect, providers: Providers): IVideo[] {
     const provider = providers.find(
       provider => provider.type === ProviderType.GooglePhotos
     ) as IProviderConfig | undefined;
-    if (!provider) {
-      throw new Error('googlePhotos provider config not found');
-    }
     selectedVideos.push(
       ..._getGooglePhotosVideos(provider, fallbackProvider, albumId)
     );
@@ -611,9 +609,6 @@ function _selectVideos(select: ITrackSelect, providers: Providers): IVideo[] {
     const provider = providers.find(
       provider => provider.type === ProviderType.Vimeo
     ) as IProviderConfig | undefined;
-    if (!provider) {
-      throw new Error('vimeo provider config not found');
-    }
     selectedVideos.push(..._getVimeoVideos(vimeo, provider, fallbackProvider));
   }
   return selectedVideos;
@@ -680,7 +675,7 @@ function _addCustomData(videos: IVideo[], provider: IProviderConfig): IVideo[] {
 
 function _getYoutubePlaylistItemsVideos(
   playlistId: string,
-  provider: IYoutubeProviderConfig,
+  provider?: IYoutubeProviderConfig,
   fallbackProvider?: IProviderConfig
 ): IVideo[] {
   const {part, optionalArgs} =
@@ -708,7 +703,7 @@ function _getYoutubePlaylistItemsVideos(
 
 function _getYoutubeVideos(
   videoId: string | string[],
-  provider: IYoutubeProviderConfig,
+  provider?: IYoutubeProviderConfig,
   fallbackProvider?: IProviderConfig
 ): IVideo[] {
   const {part, optionalArgs} = _getYoutubeVideosListParams(
@@ -734,7 +729,9 @@ function _getYoutubeVideos(
           tags: item.snippet.tags,
           title: item.snippet.title,
           url: _getYoutubeVideoUrl(item.id),
-          pointer: _getPointer(item.id, provider.sheet, fallbackProvider.sheet),
+          pointer: provider
+            ? _getPointer(item.id, provider.sheet, fallbackProvider.sheet)
+            : undefined,
         };
       })
     );
@@ -743,7 +740,7 @@ function _getYoutubeVideos(
 }
 
 function _getGooglePhotosVideos(
-  provider: IProviderConfig,
+  provider?: IProviderConfig,
   fallbackProvider?: IProviderConfig,
   albumId?: string
 ): IVideo[] {
@@ -779,7 +776,9 @@ function _getGooglePhotosVideos(
         : [],
       title: item.filename,
       url: item.productUrl,
-      pointer: _getPointer(item.id, provider.sheet, fallbackProvider.sheet),
+      pointer: provider
+        ? _getPointer(item.id, provider.sheet, fallbackProvider.sheet)
+        : undefined,
     };
   });
 }
@@ -826,7 +825,7 @@ function _getSharedAlbums() {
 
 function _getVimeoVideos(
   selectVimeo: ISelectVimeo,
-  provider: IProviderConfig,
+  provider?: IProviderConfig,
   fallbackProvider?: IProviderConfig
 ): IVideo[] {
   //TODO connect to vimeo API
@@ -838,7 +837,9 @@ function _getVimeoVideos(
       tags: [],
       title: '',
       url: _getVimeoVideoUrl(id),
-      pointer: _getPointer(id, provider.sheet, fallbackProvider.sheet),
+      pointer: provider
+        ? _getPointer(id, provider.sheet, fallbackProvider.sheet)
+        : undefined,
     };
   });
 }
