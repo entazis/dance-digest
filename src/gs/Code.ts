@@ -1046,12 +1046,17 @@ function _checkCron(cronExpression: string): boolean {
 
 function _parseCron(cronExpression = googleTriggerCron): IParsedCron {
   const fields = cronExpression.split(' ');
+  const minute = parseInt(fields[0]);
+  const hour = parseInt(fields[1]);
+  const dayOfMonth = parseInt(fields[2]);
+  const month = parseInt(fields[3]);
+  const dayOfWeek = parseInt(fields[4]);
   return {
-    minute: fields[0] ? parseInt(fields[0]) : undefined,
-    hour: fields[1] ? parseInt(fields[1]) : undefined,
-    dayOfMonth: fields[2] ? parseInt(fields[2]) : undefined,
-    month: fields[3] ? parseInt(fields[3]) : undefined,
-    dayOfWeek: fields[4] ? parseInt(fields[4]) : undefined,
+    minute: minute ? minute : undefined,
+    hour: hour ? hour : undefined,
+    dayOfMonth: dayOfMonth ? dayOfMonth : undefined,
+    month: month ? month : undefined,
+    dayOfWeek: dayOfWeek ? dayOfWeek : undefined,
   };
 }
 
