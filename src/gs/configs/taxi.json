@@ -1,0 +1,13 @@
+[
+  {
+    "name": "Taxi Lecke",
+    "select": {
+      "googlePhotos": {
+        "albumId": "AB0dA_0EYUlq89WTVimhuSPl-mwOiaP6DIloSoO-krlOcb-ZxsTRNJDLGjjM2CY2udbBfQwQWES_h7mg9zg32Y_3kfWc13oXOQ"
+      }
+    },
+    "sort": {"by": "none"},
+    "limit": {"count": 3},
+    "schedule": {"cron": "* 16 * * 3", "timezone": "Europe/Budapest"}
+  }
+]
