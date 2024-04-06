@@ -9,7 +9,7 @@
     "filter": {"tagExpression": "bachata/beginner"},
     "sort": {"by": "random"},
     "limit": {"count": 1, "progress": {"loop": true}},
-    "schedule": {"cron": "0 16 * * *", "timezone": "Europe/Budapest"}
+    "schedule": {"cron": "* 16 * * *", "timezone": "Europe/Budapest"}
   },
   {
     "name": "Practice Kizomba",
@@ -54,6 +54,6 @@
     "filter": {"tagExpression": "kizomba*Viktor+oks"},
     "sort": {"by": "random"},
     "limit": {"count": 1},
-    "schedule": {"cron": "0 16 * * *", "timezone": "Europe/Budapest"}
+    "schedule": {"cron": "* 16 * * *", "timezone": "Europe/Budapest"}
   }
 ]
