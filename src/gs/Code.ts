@@ -30,15 +30,12 @@ interface ITrackProgress {
 
 interface ITrackSelect {
   youtube?: ISelectYoutube;
-  googlePhotos?: ISelectGooglePhotos;
+  googlePhotos?: SearchGooglePhotos;
   vimeo?: ISelectVimeo;
 }
 interface ISelectYoutube {
   playlistId?: string | string[];
   videoId?: string | string[];
-}
-interface ISelectGooglePhotos {
-  albumId?: string;
 }
 interface ISelectVimeo {
   videoId?: string | string[];
@@ -372,6 +369,7 @@ function uploadGooglePhotosDetails() {
   }
 }
 
+//TODO refactor getting provider and videos for youtube and google photos upload/download
 function _getProviderAndVideos(type: ProviderType) {
   const apiConfigs = _getApiConfigs();
   if (apiConfigs.length > 1) {
@@ -597,12 +595,11 @@ function _selectVideos(
     }
   }
   if (googlePhotos) {
-    const {albumId} = googlePhotos;
     const provider = providers.find(
       provider => provider.type === ProviderType.GooglePhotos
     ) as IProviderConfig | undefined;
     selectedVideos.push(
-      ..._getGooglePhotosVideos(provider, fallbackProvider, albumId)
+      ..._getGooglePhotosVideos(provider, fallbackProvider, googlePhotos)
     );
   }
   if (vimeo) {
@@ -739,27 +736,27 @@ function _getYoutubeVideos(
   return videos;
 }
 
+//TODO refactor providers, use searchGooglePhotos as first param
 function _getGooglePhotosVideos(
   provider?: IProviderConfig,
   fallbackProvider?: IProviderConfig,
-  albumId?: string
+  searchGooglePhotos?: SearchGooglePhotos
 ): IVideo[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
-  const {search} = _getGooglePhotosParams(albumId).mediaItems;
 
-  if (search) {
+  if (searchGooglePhotos) {
     const mediaItemsSearchUrl =
       'https://photoslibrary.googleapis.com/v1/mediaItems:search';
     do {
-      search.pageToken = pageToken;
+      searchGooglePhotos.pageToken = pageToken;
       const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
         method: 'post',
         headers: {
           Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
         },
         contentType: 'application/json',
-        payload: JSON.stringify(search),
+        payload: JSON.stringify(searchGooglePhotos),
       };
       const response = UrlFetchApp.fetch(mediaItemsSearchUrl, params);
       const result = JSON.parse(response.getContentText());
@@ -1004,26 +1001,6 @@ function _getYoutubeVideosListParams(videoId: string): IYoutubeVideosList {
   };
 }
 
-function _getGooglePhotosParams(albumId?: string): {
-  mediaItems: ISelectGooglePhotosMediaItems;
-} {
-  return {
-    mediaItems: {
-      search: {
-        albumId,
-        pageSize: 100,
-        filters: albumId
-          ? undefined
-          : {
-              mediaTypeFilter: {
-                mediaTypes: ['VIDEO'],
-              },
-            },
-      },
-    },
-  };
-}
-
 interface IParsedCron {
   minute?: number;
   hour?: number;
@@ -1143,38 +1120,40 @@ interface ISelectYoutubeChannels {
 
 // https://developers.google.com/photos/library/reference/rest/v1/mediaItems/search
 interface ISelectGooglePhotosMediaItems {
-  search: {
-    albumId?: string;
-    pageSize?: number;
-    pageToken?: string;
-    filters?: {
-      dateFilter?: {
-        dates?: IGooglePhotosDate[];
-        ranges?: {
-          startDate?: IGooglePhotosDate;
-          endDate?: IGooglePhotosDate;
-        }[];
-      };
-      contentFilter?: {
-        includedContentCategories?: GooglePhotosContentCategory[];
-        excludedContentCategories?: GooglePhotosContentCategory[];
-      };
-      mediaTypeFilter?: {
-        mediaTypes: GooglePhotosMediaType[];
-      };
-      featureFilter?: {
-        includedFeatures: GooglePhotosFeature[];
-      };
-      includeArchivedMedia?: boolean;
-      excludeNonAppCreatedData?: boolean;
-    };
-    orderBy?: string;
-  };
+  search: SearchGooglePhotos;
   //TODO implement list, get, batchGet apis (GET)
   list?: any;
   get?: any;
   batchGet?: any;
 }
+
+type SearchGooglePhotos = {
+  albumId?: string;
+  pageSize?: number;
+  pageToken?: string;
+  filters?: {
+    dateFilter?: {
+      dates?: IGooglePhotosDate[];
+      ranges?: {
+        startDate?: IGooglePhotosDate;
+        endDate?: IGooglePhotosDate;
+      }[];
+    };
+    contentFilter?: {
+      includedContentCategories?: GooglePhotosContentCategory[];
+      excludedContentCategories?: GooglePhotosContentCategory[];
+    };
+    mediaTypeFilter?: {
+      mediaTypes: GooglePhotosMediaType[];
+    };
+    featureFilter?: {
+      includedFeatures: GooglePhotosFeature[];
+    };
+    includeArchivedMedia?: boolean;
+    excludeNonAppCreatedData?: boolean;
+  };
+  orderBy?: string;
+};
 
 interface IGooglePhotosDate {
   year: number;
