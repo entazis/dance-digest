@@ -42,6 +42,7 @@ interface ISelectVimeo {
 }
 interface ITrackFilter {
   tagExpression?: string;
+  playlistIds?: string[];
 }
 interface ITrackSort {
   by: SortBy;
@@ -96,6 +97,7 @@ interface IVideoBase {
   tags: string[];
   title: string;
   url: string;
+  playlistIds?: string[];
 }
 
 enum SortBy {
@@ -612,9 +614,16 @@ function _selectVideos(
 }
 
 function _filterVideos(videos: IVideo[], filter: ITrackFilter): IVideo[] {
-  const {tagExpression} = filter;
+  const {tagExpression, playlistIds} = filter;
   if (tagExpression) {
     videos = _filterVideosByTagExpression(videos, tagExpression);
+  }
+  if (playlistIds) {
+    videos = videos.filter(
+      video =>
+        video.playlistIds &&
+        video.playlistIds.some(id => playlistIds.includes(id))
+    );
   }
   return videos;
 }
@@ -695,7 +704,15 @@ function _getYoutubePlaylistItemsVideos(
     }
     nextPageToken = playlistResponse.nextPageToken;
   } while (nextPageToken);
-  return _getYoutubeVideos(videoIds, provider, fallbackProvider);
+  const videos = _getYoutubeVideos(videoIds, provider, fallbackProvider);
+  return videos.map(video => {
+    if (!video.playlistIds) {
+      video.playlistIds = [playlistId];
+    } else {
+      video.playlistIds.push(playlistId);
+    }
+    return video;
+  });
 }
 
 function _getYoutubeVideos(
