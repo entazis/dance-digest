@@ -777,7 +777,9 @@ function _getGooglePhotosVideos(
       };
       const response = UrlFetchApp.fetch(mediaItemsSearchUrl, params);
       const result = JSON.parse(response.getContentText());
-      mediaItems = mediaItems.concat(result.mediaItems);
+      if (result.mediaItems) {
+        mediaItems = mediaItems.concat(result.mediaItems);
+      }
       pageToken = result.nextPageToken;
     } while (pageToken);
   }
