@@ -43,6 +43,13 @@ interface ISelectVimeo {
 interface ITrackFilter {
   tagExpression?: string;
   playlistIds?: string[];
+  dateFilter?: {
+    dates?: IDate[];
+    ranges?: {
+      startDate?: IDate;
+      endDate?: IDate;
+    }[];
+  };
 }
 interface ITrackSort {
   by: SortBy;
@@ -98,6 +105,7 @@ interface IVideoBase {
   title: string;
   url: string;
   playlistIds?: string[];
+  createdAt?: string;
 }
 
 enum SortBy {
@@ -614,7 +622,7 @@ function _selectVideos(
 }
 
 function _filterVideos(videos: IVideo[], filter: ITrackFilter): IVideo[] {
-  const {tagExpression, playlistIds} = filter;
+  const {tagExpression, playlistIds, dateFilter} = filter;
   if (tagExpression) {
     videos = _filterVideosByTagExpression(videos, tagExpression);
   }
@@ -625,6 +633,38 @@ function _filterVideos(videos: IVideo[], filter: ITrackFilter): IVideo[] {
         video.playlistIds.some(id => playlistIds.includes(id))
     );
   }
+  if (dateFilter) {
+    videos = videos.filter(video => {
+      const createdAt = new Date(video.createdAt);
+      const year = createdAt.getFullYear();
+      const month = createdAt.getMonth();
+      const day = createdAt.getDate();
+      if (dateFilter.dates) {
+        return dateFilter.dates.some(
+          date => date.year === year && date.month === month && date.day === day
+        );
+      }
+      if (dateFilter.ranges) {
+        return dateFilter.ranges.some(range => {
+          const {startDate, endDate} = range;
+          return (
+            (!startDate ||
+              (startDate &&
+                year >= startDate.year &&
+                month >= startDate.month &&
+                day >= startDate.day)) &&
+            (!endDate ||
+              (endDate &&
+                year <= endDate.year &&
+                month <= endDate.month &&
+                day <= endDate.day))
+          );
+        });
+      }
+      return true;
+    });
+  }
+
   return videos;
 }
 
@@ -743,6 +783,7 @@ function _getYoutubeVideos(
           tags: item.snippet.tags,
           title: item.snippet.title,
           url: _getYoutubeVideoUrl(item.id),
+          createdAt: item.recordingDetails?.recordingDate,
           pointer: provider
             ? _getPointer(item.id, provider.sheet, fallbackProvider.sheet)
             : undefined,
@@ -792,6 +833,7 @@ function _getGooglePhotosVideos(
         : [],
       title: item.filename,
       url: item.productUrl,
+      createdAt: item.mediaMetadata.creationTime,
       pointer: provider
         ? _getPointer(item.id, provider.sheet, fallbackProvider.sheet)
         : undefined,
@@ -1152,10 +1194,10 @@ type SearchGooglePhotos = {
   pageToken?: string;
   filters?: {
     dateFilter?: {
-      dates?: IGooglePhotosDate[];
+      dates?: IDate[];
       ranges?: {
-        startDate?: IGooglePhotosDate;
-        endDate?: IGooglePhotosDate;
+        startDate?: IDate;
+        endDate?: IDate;
       }[];
     };
     contentFilter?: {
@@ -1174,7 +1216,7 @@ type SearchGooglePhotos = {
   orderBy?: string;
 };
 
-interface IGooglePhotosDate {
+interface IDate {
   year: number;
   month: number;
   day: number;
