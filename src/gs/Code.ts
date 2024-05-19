@@ -53,6 +53,11 @@ interface ITrackFilter {
 }
 interface ITrackSort {
   by: SortBy;
+  order?: AscOrDesc;
+}
+enum AscOrDesc {
+  Asc = 'asc',
+  Desc = 'desc',
 }
 interface ITrackLimit {
   offset?: number;
@@ -111,7 +116,7 @@ interface IVideoBase {
 enum SortBy {
   None = 'none',
   Title = 'title',
-  Date = 'date',
+  CreatedAt = 'createdAt',
   Random = 'random',
 }
 
@@ -669,14 +674,22 @@ function _filterVideos(videos: IVideo[], filter: ITrackFilter): IVideo[] {
 }
 
 function _sortVideos(videos: IVideo[], sort: ITrackSort): IVideo[] {
-  switch (sort.by) {
+  const {by, order} = sort;
+  switch (by) {
     case SortBy.None:
       return videos;
-    //TODO implement sorting methods
-    // case SortBy.Title:
-    //     return videos.sort((a, b) => a.title.localeCompare(b.title));
-    // case SortBy.Date:
-    //     return videos.sort((a, b) => a.date.localeCompare(b.date));
+    case SortBy.Title:
+      return videos.sort((a, b) =>
+        order === AscOrDesc.Desc
+          ? -1 * a.title.localeCompare(b.title)
+          : a.title.localeCompare(b.title)
+      );
+    case SortBy.CreatedAt:
+      return videos.sort((a, b) =>
+        order === AscOrDesc.Desc
+          ? -1 * a.createdAt.localeCompare(b.createdAt)
+          : a.createdAt.localeCompare(b.createdAt)
+      );
     case SortBy.Random:
       return _shuffle(videos);
     default:
@@ -1189,9 +1202,11 @@ interface ISelectGooglePhotosMediaItems {
 }
 
 type SearchGooglePhotos = {
+  // albumId can't set in conjunction with any filters.
   albumId?: string;
   pageSize?: number;
   pageToken?: string;
+  // filters can't be set in conjunction with an albumId
   filters?: {
     dateFilter?: {
       dates?: IDate[];
@@ -1213,6 +1228,10 @@ type SearchGooglePhotos = {
     includeArchivedMedia?: boolean;
     excludeNonAppCreatedData?: boolean;
   };
+  // orderBy field only works when a dateFilter is used
+  // when orderBy field is not specified, results are displayed newest first, oldest last by their creationTime
+  // providing MediaMetadata.creation_time displays search results in the opposite order, oldest first then newest last
+  // to display results newest first then oldest last, include the desc argument as follows: MediaMetadata.creation_time desc
   orderBy?: string;
 };
 
