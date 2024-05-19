@@ -283,7 +283,11 @@ function _sendDanceDigest(apiConfig: IApiConfig) {
   Logger.log(
     `sending tracks: "${apiConfig.tracks
       .map(track => track.name)
-      .join('", "')}" to user: ${apiConfig.user.email}`
+      .join('", "')}" to email(s): ${
+      Array.isArray(apiConfig.user.email)
+        ? apiConfig.user.email.join(', ')
+        : apiConfig.user.email
+    }`
   );
   const {user, tracks, providers, progresses} = apiConfig;
   if (providers) {
@@ -295,10 +299,16 @@ function _sendDanceDigest(apiConfig: IApiConfig) {
     progresses
   );
   if (sections.length > 0) {
-    Logger.log(`sending ${sections.length} sections to ${user.email}`);
+    Logger.log(
+      `sending ${sections.length} sections to ${
+        Array.isArray(apiConfig.user.email)
+          ? apiConfig.user.email.join(', ')
+          : apiConfig.user.email
+      }`
+    );
     _sendSections(sections, user);
   } else {
-    Logger.log(`no sections found for ${user.email}`);
+    Logger.log('no sections found for config');
   }
   _updateProgress(progressesUpdate);
 }
