@@ -274,12 +274,12 @@ function sendDanceDigest(apiConfig?: IApiConfig | IApiConfig[]) {
       : [apiConfig]
     : _getApiConfigs();
 
-  for (const apiConfig of apiConfigs) {
-    _sendDanceDigest(apiConfig);
+  for (const [index, apiConfig] of Object.entries(apiConfigs)) {
+    _sendDanceDigest(apiConfig, index);
   }
 }
 
-function _sendDanceDigest(apiConfig: IApiConfig) {
+function _sendDanceDigest(apiConfig: IApiConfig, index: string) {
   Logger.log(
     `sending tracks: "${apiConfig.tracks
       .map(track => track.name)
@@ -310,7 +310,7 @@ function _sendDanceDigest(apiConfig: IApiConfig) {
   } else {
     Logger.log('no sections found for config');
   }
-  _updateProgress(progressesUpdate);
+  _updateProgress(progressesUpdate, index);
 }
 
 function downloadYoutubeUploadsDetails() {
@@ -483,10 +483,10 @@ function _getApiConfigs(): IApiConfig[] {
   }
 }
 
-function _updateProgress(progresses: ITrackProgress[]): void {
+function _updateProgress(progresses: ITrackProgress[], index: string): void {
   SpreadsheetApp.getActiveSpreadsheet()
     //TODO literal
-    .getRange('config!D2')
+    .getRange(`config!D${2 + parseInt(index)}`)
     .setValue(JSON.stringify(progresses));
 }
 
