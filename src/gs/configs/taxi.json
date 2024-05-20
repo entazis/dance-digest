@@ -1,29 +1,35 @@
 [
   {
-    "name": "Taxi Lecke",
+    "name": "Aktuális",
     "select": {
       "googlePhotos": {
         "albumId": "AB0dA_0EYUlq89WTVimhuSPl-mwOiaP6DIloSoO-krlOcb-ZxsTRNJDLGjjM2CY2udbBfQwQWES_h7mg9zg32Y_3kfWc13oXOQ"
       }
     },
-    "filter": {
-      "dateFilter": {
-        "ranges": [{
-          "startDate": {
-            "year": 2020,
-            "month": 1,
-            "day": 1
-          },
-          "endDate": {
-            "year": 2024,
-            "month": 12,
-            "day": 31
-          }
-        }]
-      }
-    },
     "sort": {"by": "createdAt", "order": "desc"},
     "limit": {"count": 3},
+    "schedule": {"cron": "* 16 * * 3", "timezone": "Europe/Budapest"}
+  },
+  {
+    "name": "Ismétlés",
+    "select": {
+      "googlePhotos": {
+        "albumId": "AB0dA_0EYUlq89WTVimhuSPl-mwOiaP6DIloSoO-krlOcb-ZxsTRNJDLGjjM2CY2udbBfQwQWES_h7mg9zg32Y_3kfWc13oXOQ"
+      }
+    },
+    "sort": {"by": "createdAt", "order": "asc"},
+    "limit": {"count": 1, "progress": {"loop": true}},
+    "schedule": {"cron": "* 16 * * 3", "timezone": "Europe/Budapest"}
+  },
+  {
+    "name": "Meglepetés",
+    "select": {
+      "googlePhotos": {
+        "albumId": "AB0dA_0EYUlq89WTVimhuSPl-mwOiaP6DIloSoO-krlOcb-ZxsTRNJDLGjjM2CY2udbBfQwQWES_h7mg9zg32Y_3kfWc13oXOQ"
+      }
+    },
+    "sort": {"by": "random"},
+    "limit": {"count": 1},
     "schedule": {"cron": "* 16 * * 3", "timezone": "Europe/Budapest"}
   }
 ]
