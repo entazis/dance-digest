@@ -963,11 +963,10 @@ function _sendSections(sections: ISection[], userConfig: IUserConfig): void {
   const emails = Array.isArray(userConfig.email)
     ? userConfig.email
     : [userConfig.email];
-  for (const email of emails) {
-    GmailApp.sendEmail(email, userConfig.subject, userConfig.body, {
-      htmlBody: template.evaluate().getContent(),
-    });
-  }
+  GmailApp.sendEmail(undefined, userConfig.subject, userConfig.body, {
+    htmlBody: template.evaluate().getContent(),
+    bcc: emails.join(','),
+  });
 }
 
 function _getYoutubeUploadsPlaylistId(): string {
