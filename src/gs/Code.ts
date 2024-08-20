@@ -886,6 +886,29 @@ function _createNewAlbum(): string {
   return result.id;
 }
 
+function _shareAlbum(albumId: string): string {
+  const createAlbumUrl = `https://photoslibrary.googleapis.com/v1/albums/${albumId}:share`;
+  const requestData: IShareAlbumRequest = {
+    sharedAlbumOptions: {
+      isCollaborative: 'true',
+      isCommentable: 'true',
+    },
+  };
+  const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+    method: 'post',
+    headers: {
+      Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
+    },
+    contentType: 'application/json',
+    payload: JSON.stringify(requestData),
+  };
+
+  const response = UrlFetchApp.fetch(createAlbumUrl, params);
+  const result: IShareAlbumResponse = JSON.parse(response.getContentText());
+
+  return result.shareInfo.shareToken;
+}
+
 function _getSharedAlbums() {
   let sharedAlbums: ISharedAlbum[] = [];
   let pageToken = '';
@@ -1374,4 +1397,25 @@ interface ICreateNewAlbumResult {
   id: string;
   title: string;
   isWriteable: string;
+}
+
+interface IShareAlbumRequest {
+  sharedAlbumOptions: {
+    isCollaborative: string;
+    isCommentable: string;
+  };
+}
+
+interface IShareAlbumResponse {
+  shareInfo: {
+    sharedAlbumOptions: {
+      isCollaborative: string;
+      isCommentable: string;
+    };
+    shareableUrl: string;
+    shareToken: string;
+    isJoinable: string;
+    isJoined: string;
+    isOwned: string;
+  };
 }
