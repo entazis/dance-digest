@@ -864,6 +864,28 @@ function _getGooglePhotosVideos(
   });
 }
 
+function _createNewAlbum(): string {
+  const createAlbumUrl = 'https://photoslibrary.googleapis.com/v1/albums';
+  const requestData: ICreateNewAlbumRequest = {
+    album: {
+      title: 'taxi test',
+    },
+  };
+  const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+    method: 'post',
+    headers: {
+      Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
+    },
+    contentType: 'application/json',
+    payload: JSON.stringify(requestData),
+  };
+
+  const response = UrlFetchApp.fetch(createAlbumUrl, params);
+  const result: ICreateNewAlbumResult = JSON.parse(response.getContentText());
+
+  return result.id;
+}
+
 function _getSharedAlbums() {
   let sharedAlbums: ISharedAlbum[] = [];
   let pageToken = '';
@@ -1339,4 +1361,17 @@ interface ISharedAlbum {
   mediaItemsCount: string;
   coverPhotoBaseUrl: string;
   coverPhotoMediaItemId: string;
+}
+
+interface ICreateNewAlbumRequest {
+  album: {
+    title: string;
+  };
+}
+
+interface ICreateNewAlbumResult {
+  productUrl: string;
+  id: string;
+  title: string;
+  isWriteable: string;
 }
