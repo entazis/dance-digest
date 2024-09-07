@@ -120,6 +120,8 @@ enum SortBy {
   Random = 'random',
 }
 
+//TODO split code into multiple files
+
 const googleTriggerCron = '* 16 * * *';
 
 //TODO create "id details map" videoId: {custom: IVideoBase, cell: string}, apply for vimeo
@@ -719,6 +721,13 @@ function _limitVideos(
 
 function _addCustomData(videos: IVideo[], provider: IProviderConfig): IVideo[] {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  //TODO fix bug: Exception: Too many simultaneous invocations: Spreadsheets
+  // at _addCustomData(Code:498:10)
+  // at _getVideos(Code:395:18)
+  // at _getSectionsAndProgress(Code:363:24)
+  // at _sendDanceDigest(Code:182:56)
+  // at sendDanceDigest(Code:169:9)
+  // at run(Code:160:5)
   const customValues = spreadsheet
     .getRange(_getA1Notation(provider.sheet.name))
     .getValues()
