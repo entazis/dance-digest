@@ -1,39 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <base target="_top">
-    <title>Dance Digest</title>
-  </head>
-  <body>
-    <? for (const section of sections) { ?>
-      <h2><?= section.name ?></h2>
-      <ul style="list-style-type: square">
-        <? for (const video of section.videos) { ?>
-          <li>
-            <? if (video.custom && video.custom.url) { ?>
-              <a href="<?= video.custom.url?>">
-            <? } else { ?>
-              <a href="<?= video.url?>">
-            <? } ?>
-              <? if (video.custom && video.custom.title) { ?>
-                <span><?= video.custom.title ?></span>
-              <? } else { ?>
-                <span><?= video.title ?></span>
-              <? } ?>
-            </a>
-            <? if (video.custom && video.custom.tags) { ?>
-              <span><?= video.custom.tags.join(", ") ?></span>
-            <? } else { ?>
-                <span><?= video.tags.join(", ") ?></span>
-            <? } ?>
-            <? if (video.custom && video.custom.pointer) { ?>
-              <a href="<?= video.custom.pointer ?>">sheet</a>
-            <? } else if (video.pointer) { ?>
-              <a href="<?= video.pointer ?>">sheet</a>
-            <? } ?>
-          </li>
-        <? } ?>
-      </ul>
-    <? } ?>
-  </body>
+
+<head>
+  <base target="_top">
+  <title>Dance Digest</title>
+</head>
+
+<body>
+<? for (const section of sections) { ?>
+<h2><?= section.name ?></h2>
+<ul style="list-style-type: square">
+  <? for (const video of section.videos) { ?>
+  <li>
+    <? if (video.custom && video.custom.url) { ?>
+    <a href="<?= video.custom.url?>">
+      <? } else { ?>
+      <a href="<?= video.url?>"><? } ?><? if (video.custom && video.custom.title) { ?><span><?= video.custom.title ?></span><? } else { ?><span><?= video.title ?></span><? } ?></a>
+      <? if (video.custom && video.custom.tags) { ?>
+      <span><?= video.custom.tags.join(", ") ?></span>
+      <? } else { ?>
+      <span><?= video.tags.join(", ") ?></span>
+      <? } ?>
+      <? if (video.custom && video.custom.pointer) { ?>
+      <a href="<?= video.custom.pointer ?>">sheet</a>
+      <? } else if (video.pointer) { ?>
+      <a href="<?= video.pointer ?>">sheet</a>
+      <? } ?>
+  </li>
+  <? } ?>
+</ul>
+<? } ?>
+</body>
+
 </html>
