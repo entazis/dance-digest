@@ -15,7 +15,7 @@
     <? if (video.custom && video.custom.url) { ?>
     <a href="<?= video.custom.url?>">
       <? } else { ?>
-      <a href="<?= video.url?>"><? } ?><? if (video.custom && video.custom.title) { ?><span><?= video.custom.title ?></span><? } else { ?><span><?= video.title ?></span><? } ?></a>
+      <a href="<?= video.url?>"><? } ?><? if (video.custom && video.custom.title) { ?><span><?= video.custom.title ?></span><? } else { ?><span><?= video.title || 'video' ?></span><? } ?></a>
       <? if (video.custom && video.custom.tags) { ?>
       <span><?= video.custom.tags.join(", ") ?></span>
       <? } else { ?>
