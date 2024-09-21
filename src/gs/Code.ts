@@ -373,7 +373,10 @@ function _addCustomData(videos: IVideo[], provider: IProviderConfig): IVideo[] {
   for (const customValue of customValues) {
     customVideos.push({
       id: customValue[0],
-      tags: customValue[1].split(',').map((tag: string) => tag.trim()),
+      tags: customValue[1]
+        .split(',')
+        .map((tag: string) => tag.trim())
+        .filter((tag: string) => tag),
       url: customValue[2],
       title: customValue[3],
     });
@@ -619,15 +622,21 @@ function _filterVideosByTagExpression(videos: IVideo[], tagExpression: string) {
       }
       return tags.every((tag, index) => {
         if (operations[index] === '*') {
-          return video.custom && video.custom.tags
+          return video.custom &&
+            video.custom.tags &&
+            video.custom.tags.length > 0
             ? video.custom.tags.includes(tag)
             : video.tags.includes(tag);
         } else if (operations[index] === '/') {
-          return !(video.custom && video.custom.tags
+          return !(video.custom &&
+          video.custom.tags &&
+          video.custom.tags.length > 0
             ? video.custom.tags.includes(tag)
             : video.tags.includes(tag));
         } else {
-          return video.custom && video.custom.tags
+          return video.custom &&
+            video.custom.tags &&
+            video.custom.tags.length > 0
             ? video.custom.tags.includes(tag)
             : video.tags.includes(tag);
         }

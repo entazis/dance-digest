@@ -16,7 +16,7 @@
     <a href="<?= video.custom.url?>">
       <? } else { ?>
       <a href="<?= video.url?>"><? } ?><? if (video.custom && video.custom.title) { ?><span><?= video.custom.title ?></span><? } else { ?><span><?= video.title || 'video' ?></span><? } ?></a>
-      <? if (video.custom && video.custom.tags) { ?>
+      <? if (video.custom && video.custom.tags && video.custom.tags.length > 0) { ?>
       <span><?= video.custom.tags.join(", ") ?></span>
       <? } else { ?>
       <span><?= video.tags.join(", ") ?></span>
