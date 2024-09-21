@@ -94,7 +94,6 @@ function uploadGooglePhotosDetails() {
         )} from title: "${video.title}", tags: ${JSON.stringify(video.tags)})`
       );
 
-      const mediaItemsUpdateUrl = `https://photoslibrary.googleapis.com/v1/mediaItems/${videoId}?updateMask=description`;
       const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
         method: 'patch',
         headers: {
@@ -105,7 +104,10 @@ function uploadGooglePhotosDetails() {
           description: tags.join(','),
         }),
       };
-      const response = UrlFetchApp.fetch(mediaItemsUpdateUrl, params);
+      const response = UrlFetchApp.fetch(
+        getMediaItemsUpdateUrl(videoId),
+        params
+      );
     }
   }
 }

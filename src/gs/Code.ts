@@ -468,8 +468,6 @@ function _getGooglePhotosVideos(
   let pageToken = '';
 
   if (searchGooglePhotos) {
-    const mediaItemsSearchUrl =
-      'https://photoslibrary.googleapis.com/v1/mediaItems:search';
     do {
       searchGooglePhotos.pageToken = pageToken;
       const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
@@ -506,7 +504,6 @@ function _getGooglePhotosVideos(
 }
 
 function _createNewAlbum(): string {
-  const createAlbumUrl = 'https://photoslibrary.googleapis.com/v1/albums';
   const requestData: ICreateNewAlbumRequest = {
     album: {
       title: 'taxi test',
@@ -528,7 +525,6 @@ function _createNewAlbum(): string {
 }
 
 function _shareAlbum(albumId: string): string {
-  const createAlbumUrl = `https://photoslibrary.googleapis.com/v1/albums/${albumId}:share`;
   const requestData: IShareAlbumRequest = {
     sharedAlbumOptions: {
       isCollaborative: 'true',
@@ -544,7 +540,7 @@ function _shareAlbum(albumId: string): string {
     payload: JSON.stringify(requestData),
   };
 
-  const response = UrlFetchApp.fetch(createAlbumUrl, params);
+  const response = UrlFetchApp.fetch(getShareAlbumUrl(albumId), params);
   const result: IShareAlbumResponse = JSON.parse(response.getContentText());
 
   return result.shareInfo.shareToken;
@@ -558,8 +554,6 @@ function _getSharedAlbums() {
     pageToken,
   };
 
-  const listSharedAlbumsUrl =
-    'https://photoslibrary.googleapis.com/v1/sharedAlbums';
   do {
     query.pageToken = pageToken;
     const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {

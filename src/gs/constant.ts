@@ -1,3 +1,13 @@
+const mediaItemsSearchUrl =
+  'https://photoslibrary.googleapis.com/v1/mediaItems:search';
+const createAlbumUrl = 'https://photoslibrary.googleapis.com/v1/albums';
+const getShareAlbumUrl = (albumId: string) =>
+  `https://photoslibrary.googleapis.com/v1/albums/${albumId}:share`;
+const listSharedAlbumsUrl =
+  'https://photoslibrary.googleapis.com/v1/sharedAlbums';
+const getMediaItemsUpdateUrl = (videoId: string) =>
+  `https://photoslibrary.googleapis.com/v1/mediaItems/${videoId}?updateMask=description`;
+
 const googleTriggerCron = '* 16 * * *';
 const idCellMaps: {[sheetName: string]: IdCellMap} = {};
 const testApiConfig: IApiConfig = {
