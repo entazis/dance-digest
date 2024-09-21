@@ -12,9 +12,9 @@ function _sendDanceDigests(apiConfig?: IApiConfig | IApiConfig[]) {
 
 function _sendDanceDigest(apiConfig: IApiConfig, index: string) {
   Logger.log(
-    `sending tracks: "${apiConfig.tracks
+    `processing tracks: "${apiConfig.tracks
       .map(track => track.name)
-      .join('", "')}" to email(s): ${
+      .join('", "')}" of user with email(s): ${
       Array.isArray(apiConfig.user.email)
         ? apiConfig.user.email.join(', ')
         : apiConfig.user.email
@@ -31,7 +31,9 @@ function _sendDanceDigest(apiConfig: IApiConfig, index: string) {
   );
   if (sections.length > 0) {
     Logger.log(
-      `sending ${sections.length} sections to ${
+      `sending "${sections
+        .map(section => section.name)
+        .join('", "')}" sections to ${
         Array.isArray(apiConfig.user.email)
           ? apiConfig.user.email.join(', ')
           : apiConfig.user.email
@@ -155,6 +157,9 @@ function _getSectionsAndProgress(
   for (const track of tracks) {
     const cron = track.schedule?.cron;
     if (cron && !_checkCron(cron)) {
+      Logger.log(
+        `cron ${cron} does not match current time, skipping track: ${track.name}`
+      );
       continue;
     }
 
