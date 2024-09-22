@@ -8,6 +8,15 @@ const listSharedAlbumsUrl =
 const getMediaItemsUpdateUrl = (videoId: string) =>
   `https://photoslibrary.googleapis.com/v1/mediaItems/${videoId}?updateMask=description`;
 
+const logMediaItemsOfAlbumIdDefault =
+  'AB0dA_0EYUlq89WTVimhuSPl-mwOiaP6DIloSoO-krlOcb-ZxsTRNJDLGjjM2CY2udbBfQwQWES_h7mg9zg32Y_3kfWc13oXOQ';
+const logFieldsOfMediaItemsDefault: (keyof IMediaItem)[] = [
+  'filename',
+  'id',
+  'productUrl',
+  'description',
+];
+
 const googleTriggerCron = '* 16 * * *';
 const idCellMaps: {[sheetName: string]: IdCellMap} = {};
 const testApiConfig: IApiConfig = {

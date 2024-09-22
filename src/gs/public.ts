@@ -13,6 +13,24 @@ function logSharedAlbums() {
     Logger.log(album);
   });
 }
+function logGooglePhotosMediaItems(
+  searchGooglePhotos: SearchGooglePhotos = {
+    albumId: logMediaItemsOfAlbumIdDefault,
+  },
+  fields: (keyof IMediaItem)[] = logFieldsOfMediaItemsDefault
+) {
+  _getGooglePhotosMediaItems(searchGooglePhotos)
+    .map(mediaItem => {
+      return fields
+        .map(field => ({
+          [field]: mediaItem[field],
+        }))
+        .reduce((acc, curr) => ({...acc, ...curr}), {});
+    })
+    .forEach(result => {
+      Logger.log(result);
+    });
+}
 
 function onOpen() {
   addMenu();
