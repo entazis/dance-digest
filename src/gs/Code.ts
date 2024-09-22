@@ -472,9 +472,27 @@ function _getGooglePhotosVideos(
   fallbackProvider?: IProviderConfig,
   searchGooglePhotos?: SearchGooglePhotos
 ): IVideo[] {
+  return _getGooglePhotosMediaItems(searchGooglePhotos).map(item => {
+    return {
+      id: item.id,
+      tags: item.description
+        ? item.description.split(',').map(tag => tag.trim())
+        : [],
+      title: item.filename,
+      url: item.productUrl,
+      createdAt: item.mediaMetadata.creationTime,
+      pointer: provider
+        ? _getPointer(item.id, provider.sheet, fallbackProvider.sheet)
+        : undefined,
+    };
+  });
+}
+
+function _getGooglePhotosMediaItems(
+  searchGooglePhotos: SearchGooglePhotos
+): IMediaItem[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
-
   if (searchGooglePhotos) {
     do {
       searchGooglePhotos.pageToken = pageToken;
@@ -494,21 +512,7 @@ function _getGooglePhotosVideos(
       pageToken = result.nextPageToken;
     } while (pageToken);
   }
-
-  return mediaItems.map(item => {
-    return {
-      id: item.id,
-      tags: item.description
-        ? item.description.split(',').map(tag => tag.trim())
-        : [],
-      title: item.filename,
-      url: item.productUrl,
-      createdAt: item.mediaMetadata.creationTime,
-      pointer: provider
-        ? _getPointer(item.id, provider.sheet, fallbackProvider.sheet)
-        : undefined,
-    };
-  });
+  return mediaItems;
 }
 
 function _createNewAlbum(): string {
