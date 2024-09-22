@@ -74,7 +74,7 @@ function _getProviderAndVideos(type: ProviderType) {
       );
       break;
     case ProviderType.GooglePhotos:
-      videos = _getGooglePhotosVideos(provider, fallbackProvider);
+      videos = _getGooglePhotosVideos({}, provider, fallbackProvider);
       break;
     default:
       throw new Error(`provider type is not supported: ${type}`);
@@ -263,7 +263,7 @@ function _selectVideos(
       provider => provider.type === ProviderType.GooglePhotos
     ) as IProviderConfig | undefined;
     selectedVideos.push(
-      ..._getGooglePhotosVideos(provider, fallbackProvider, googlePhotos)
+      ..._getGooglePhotosVideos(googlePhotos, provider, fallbackProvider)
     );
   }
   if (vimeo) {
@@ -466,11 +466,10 @@ function _getYoutubeVideos(
   return videos;
 }
 
-//TODO refactor providers, use searchGooglePhotos as first param
 function _getGooglePhotosVideos(
+  searchGooglePhotos: SearchGooglePhotos,
   provider?: IProviderConfig,
-  fallbackProvider?: IProviderConfig,
-  searchGooglePhotos?: SearchGooglePhotos
+  fallbackProvider?: IProviderConfig
 ): IVideo[] {
   return _getGooglePhotosMediaItems(searchGooglePhotos).map(item => {
     return {
@@ -493,25 +492,25 @@ function _getGooglePhotosMediaItems(
 ): IMediaItem[] {
   let mediaItems: IMediaItem[] = [];
   let pageToken = '';
-  if (searchGooglePhotos) {
-    do {
-      searchGooglePhotos.pageToken = pageToken;
-      const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
-        method: 'post',
-        headers: {
-          Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
-        },
-        contentType: 'application/json',
-        payload: JSON.stringify(searchGooglePhotos),
-      };
-      const response = UrlFetchApp.fetch(mediaItemsSearchUrl, params);
-      const result = JSON.parse(response.getContentText());
-      if (result.mediaItems) {
-        mediaItems = mediaItems.concat(result.mediaItems);
-      }
-      pageToken = result.nextPageToken;
-    } while (pageToken);
-  }
+
+  do {
+    searchGooglePhotos.pageToken = pageToken;
+    const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+      method: 'post',
+      headers: {
+        Authorization: `Bearer ${ScriptApp.getOAuthToken()}`,
+      },
+      contentType: 'application/json',
+      payload: JSON.stringify(searchGooglePhotos),
+    };
+    const response = UrlFetchApp.fetch(mediaItemsSearchUrl, params);
+    const result = JSON.parse(response.getContentText());
+    if (result.mediaItems) {
+      mediaItems = mediaItems.concat(result.mediaItems);
+    }
+    pageToken = result.nextPageToken;
+  } while (pageToken);
+
   return mediaItems;
 }
 
